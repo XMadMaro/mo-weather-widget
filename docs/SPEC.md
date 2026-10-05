@@ -22,7 +22,7 @@
        ▼                  ▼
 ┌──────────────┐    ┌──────────────┐
 │ Cache świeży │    │ Open-Meteo   │
-│ (< 60 min)   │    │ API (icon_d2)│
+│ (< 60 min)   │    │ API (icon_seamless)│
 └──────┬───────┘    └──────┬───────┘
        │                   │
        │                   ▼
@@ -97,7 +97,7 @@ Origin: https://portal.example.com
   "fetched_at": 1728000000,
   "last_updated_timestamp": 1728000000,
   "server_time": 1728003600,
-  "source": "open-meteo icon_d2",
+  "source": "open-meteo icon_seamless",
   "attribution": "Dane pogodowe: Open-Meteo.com (CC-BY 4.0)",
   "is_stale": false,
   "cache": "live"
@@ -117,7 +117,7 @@ Origin: https://portal.example.com
 | `fetched_at`             | int    | Timestamp (Unix) pobrania danych z Open-Meteo                        |
 | `last_updated_timestamp` | int    | Timestamp ostatniej aktualizacji (alias `fetched_at`)                |
 | `server_time`            | int    | Timestamp serwera przy generowaniu odpowiedzi                        |
-| `source`                 | string | Źródło danych (np. "open-meteo icon_d2")                             |
+| `source`                 | string | Źródło danych (np. "open-meteo icon_seamless")                       |
 | `attribution`            | string | Atrybucja licencyjna (wymóg CC-BY 4.0)                               |
 | `is_stale`               | bool   | `true` jeśli dane z cache >60 min (API padło), `false` jeśli świeże  |
 | `cache`                  | string | Stan cache: `fresh` (<60 min), `live` (odświeżony), `stale` (awaria) |

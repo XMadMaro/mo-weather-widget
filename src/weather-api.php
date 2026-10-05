@@ -129,7 +129,7 @@ function mo_fetch_meteo(float $lat, float $lon): ?array {
     $url = 'https://api.open-meteo.com/v1/forecast?' . http_build_query([
         'latitude'      => $lat,
         'longitude'     => $lon,
-        'models'        => 'icon_d2',
+        'models'        => 'icon_seamless',
         'timezone'      => 'Europe/Warsaw',
         'forecast_days' => 1,
         'current'       => 'temperature_2m,weather_code,wind_speed_10m',
@@ -190,7 +190,7 @@ if ($cached !== null && ($now - (int) $cached['fetched_at']) < MO_CACHE_TTL) {
             'city'        => $city,
             'label'       => MO_CITIES[$city]['label'],
             'fetched_at'  => $now,
-            'source'      => 'open-meteo icon_d2',
+            'source'      => 'open-meteo icon_seamless',
             'attribution' => 'Dane pogodowe: Open-Meteo.com (CC-BY 4.0)',
         ], $live);
         $payload['is_stale'] = false;
