@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drupal Embed Example — MO Weather Widget</title>
+  <style>
+    body { font-family: "Lucida Grande", "DejaVu Sans", "Bitstream Vera Sans", Verdana, sans-serif; background: #fbfbfb; margin: 24px; color: #3b3b3b; }
+    .region-content { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border: 1px solid #e1e2e3; }
+    h1 { font-size: 22px; color: #1e1e1e; border-bottom: 2px solid #0073b6; padding-bottom: 8px; }
+    .block-mo-weather { margin: 20px 0; }
+  </style>
+  <script src="../dist/weather-widget.js" defer></script>
+</head>
+<body>
+  <div class="region-content">
+    <h1>Portal Miejski — Drupal 10 Full HTML Block</h1>
+    <p>Agregator pogody osadzony jako własny blok w formacie <em>Full HTML</em>:</p>
+
+    <!-- KOD WKLEJANY DO BLOKU DRUPAL -->
+    <div class="block-mo-weather">
+      <mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,bytom" api-url="../dist/weather-api.php"></mo-weather>
+    </div>
+
+    <p>Agregator miast wspiera responsywny horyzontalny scroll-snap na urządzeniach mobilnych.</p>
+  </div>
+</body>
+</html>

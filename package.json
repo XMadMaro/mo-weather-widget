@@ -1,0 +1,26 @@
+{
+  "name": "mo-weather-widget",
+  "version": "1.0.0",
+  "description": "Zero-dependency, standalone weather Web Component with secure PHP caching proxy for editorial portals",
+  "main": "dist/weather-widget.js",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "test": "node --check dist/weather-widget.js && node --check src/weather-widget.js",
+    "test:api": "bash scripts/test-api.sh"
+  },
+  "keywords": [
+    "weather",
+    "widget",
+    "web-component",
+    "shadow-dom",
+    "open-meteo",
+    "craft-cms",
+    "wordpress",
+    "drupal"
+  ],
+  "author": "Media Operator",
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5.39.0"
+  }
+}

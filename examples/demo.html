@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MO Weather Widget — demo lokalne</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f5; color: #111; }
+  header { background: #111; color: #fff; padding: 16px 20px; }
+  header h1 { font-size: 18px; margin: 0 0 6px; }
+  header p { margin: 0; font-size: 13px; color: #bbb; }
+  main { max-width: 760px; margin: 24px auto; padding: 0 16px; display: grid; gap: 28px; }
+  section { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; }
+  h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
+  .dark { --mo-card: #17181c; --mo-text: #f4f4f5; --mo-muted: #9ca3af; --mo-border: #2b2d33; --mo-accent: #6ab0ff; background: #0f1013; }
+  code { background: #eef; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+
+<script>
+  /* TRYB MOCK (?mock=1): przechwytuje fetch do weather-api.php BEZ serwera PHP.
+     Produkcja NIGDY nie używa mocka — widget gada wyłącznie z proxy. */
+  (function () {
+    if (!location.search.includes('mock=1')) return;
+    window.__MO_STATE = 'fresh';
+    var real = window.fetch.bind(window);
+    function payload(city, stale) {
+      var base = { katowice: 12, gliwice: 11, sosnowiec: 12, bytom: 10, zabrze: 11 };
+      var t = base[city] != null ? base[city] : 12;
+      return {
+        city: city, label: city.charAt(0).toUpperCase() + city.slice(1),
+        temperature: t, weather_code: city === 'bytom' ? 71 : 61,
+        wind_speed: 14, temp_max: t + 3, temp_min: t - 5,
+        fetched_at: Math.floor(Date.now() / 1000) - (stale ? 5400 : 60),
+        last_updated_timestamp: Math.floor(Date.now() / 1000) - (stale ? 5400 : 60),
+        is_stale: stale, cache: stale ? 'stale' : 'live',
+        attribution: 'Dane pogodowe: Open-Meteo.com (CC-BY 4.0)'
+      };
+    }
+    window.fetch = function (url, opts) {
+      if (String(url).indexOf('weather-api.php') === -1) return real(url, opts);
+      var m = String(url).match(/city=([a-z-]+)/);
+      var city = m ? m[1] : 'katowice';
+      if (window.__MO_STATE === 'down') {
+        return Promise.resolve(new Response(JSON.stringify({ error: 'weather unavailable' }), { status: 503 }));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify(payload(city, window.__MO_STATE === 'stale')),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      ));
+    };
+  })();
+</script>
+<script src="../dist/weather-widget.js" defer></script>
+</head>
+<body>
+<header>
+  <h1>MO Weather Widget — demo</h1>
+  <p>Tryb mock: <code>?mock=1</code> · Tryb live: <code>php -S 127.0.0.1:8080</code> w katalogu z <code>weather-api.php</code>, potem ustaw <code>api-url="http://127.0.0.1:8080/weather-api.php"</code></p>
+</header>
+<main>
+  <section>
+    <h2>Symulacja backendu (tylko mock)</h2>
+    <div class="bar">
+      <button id="b-fresh" aria-pressed="true">Świeże dane</button>
+      <button id="b-stale" aria-pressed="false">API padło (stale cache)</button>
+      <button id="b-down" aria-pressed="false">Backend martwy (localStorage)</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Mode: single (Katowice)</h2>
+    <mo-weather mode="single" city-id="katowice" api-url="weather-api.php"></mo-weather>
+  </section>
+
+  <section>
+    <h2>Mode: aggregator (4 miasta, scroll-snap)</h2>
+    <mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,bytom" api-url="weather-api.php"></mo-weather>
+  </section>
+
+  <section class="dark">
+    <h2>Theming przez CSS variables</h2>
+    <mo-weather mode="single" city-id="bytom" api-url="weather-api.php"></mo-weather>
+  </section>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var btns = { 'b-fresh': 'fresh', 'b-stale': 'stale', 'b-down': 'down' };
+    Object.keys(btns).forEach(function (id) {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.addEventListener('click', function () {
+        window.__MO_STATE = btns[id];
+        Object.keys(btns).forEach(function (o) {
+          document.getElementById(o).setAttribute('aria-pressed', String(o === id));
+        });
+        document.querySelectorAll('mo-weather').forEach(function (w) { w.refresh(); });
+      });
+    });
+  });
+</script>
+</body>
+</html>

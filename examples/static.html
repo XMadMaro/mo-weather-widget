@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Static Site Embed (Hugo / Jekyll / Astro) — MO Weather Widget</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #fafafa; margin: 0; padding: 24px; color: #111; }
+    .container { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; }
+    h1 { font-size: 20px; margin-top: 0; }
+    .widget-container { margin: 20px 0; }
+  </style>
+  <script src="../dist/weather-widget.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Portal Statyczny (SSG: Hugo / Jekyll / Astro)</h1>
+    <p>Przykład wdrożenia na stronie statycznej z własnym proxy:</p>
+
+    <div class="widget-container">
+      <mo-weather mode="single" city-id="katowice" api-url="../dist/weather-api.php"></mo-weather>
+    </div>
+
+    <p>Zero zależności od zewnętrznych bibliotek npm — czysty standard Web Components.</p>
+  </div>
+</body>
+</html>
