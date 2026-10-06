@@ -13,10 +13,14 @@ The `mo-weather-widget` is designed to be hosted in high-traffic, sensitive edit
 - Partial domain suffix spoofing (e.g. `zlyslazag.pl`) is unconditionally rejected (`403 Forbidden`).
 - Development origin matching (`localhost`, `127.0.0.1`) requires explicit `APP_ENV=development`.
 
-### Abuse & DoS Protection
-- Token bucket rate limiting per SHA-256 hashed client IP (`30 requests / 60 seconds`).
-- Rate-limited requests return `429 Too Many Requests` with a compliant `Retry-After` header.
-- Atomic file locking (`flock(LOCK_EX)`) prevents race condition concurrency exploits.
+### Abuse, DoS & Thundering Herd Protection
+- **Token Bucket Rate Limiting:** Per SHA-256 hashed client IP (`30 requests / 60 seconds`). Rate-limited requests return `429 Too Many Requests` with a compliant `Retry-After` header.
+- **Probabilistic Inode Garbage Collection:** A 1% probabilistic sweep runs during requests to purge `rl_*.json` files older than 24 hours, preventing inode exhaustion attacks and filesystem degradation.
+- **Circuit Breaker (Negative Caching):** When upstream Open-Meteo calls fail or timeout (8s limit), a negative cache marker (`backoff_{city}.json`) is activated for 60 seconds. High concurrent volumes (thundering herds) are served stale cache immediately without tieing up PHP-FPM execution slots.
+- **Concurrency & Race Conditions:** Atomic file locking (`flock(LOCK_EX)`) and temporary file renaming prevent corruption during concurrent writes.
+
+### HTTP Header Defenses
+- `X-Content-Type-Options: nosniff` is attached to every response, preventing browsers from MIME-sniffing away from the declared `application/json` format.
 
 ### Cross-Site Scripting (XSS) Prevention
 - Zero dynamic evaluation: all values retrieved from the API are injected into the DOM exclusively using `Element.textContent`.
@@ -32,7 +36,8 @@ The `mo-weather-widget` is designed to be hosted in high-traffic, sensitive edit
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
+| 1.0.1   | :white_check_mark: |
+| 1.0.0   | :white_check_mark: |
 | < 1.0   | :x:                |
 
 ---

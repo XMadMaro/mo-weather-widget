@@ -1,4 +1,4 @@
-# MO Weather Widget (v1.0.0)
+# MO Weather Widget (v1.0.1)
 
 > Samowystarczalny, lekki komponent pogodowy Web Component (`<mo-weather>`) z bezpiecznym proxy backendowym w PHP dla portali redakcyjnych i regionalnych.
 
@@ -13,9 +13,10 @@
 
 - **Zero zewnętrznych zależności** — czysty Vanilla JavaScript (Shadow DOM v1) i PHP 8.1+ (brak bibliotek npm i composera w runtime).
 - **100% izolacja stylów (Shadow DOM)** — style widgetu nie wchodzą w kolizje z motywem portalu; pełny theming przez zmienne CSS (`--mo-*`).
-- **Zero Layout Shift (CLS = 0)** — wbudowany skeleton o stałej wysokości 96px rezerwuje przestrzeń przed załadowaniem danych.
-- **Odporność na awarie (3-poziomowy fallback)** — świeże API → stary cache proxy (`is_stale: true`) → mirror w `localStorage` przeglądarki.
-- **Bezpieczeństwo & RODO-free** — brak ciasteczek, brak śledzenia, sanitizacja danych wyłącznie przez `textContent`, CORS z dopasowaniem po granicy kropki, rate limit 30 req/min per hash IP.
+- **Zero Layout Shift (CLS = 0)** — wbudowany skeleton o stałej wysokości 170px rezerwuje pełną przestrzeń karty przed załadowaniem danych.
+- **Odporność na awarie (Circuit Breaker & Fallback)** — negative cache (60s backoff) chroni przed thundering herd → stary cache proxy (`is_stale: true`) → mirror w `localStorage` przeglądarki.
+- **Bezpieczeństwo & RODO-free** — brak ciasteczek, brak śledzenia, sanitizacja danych wyłącznie przez `textContent`, CORS z dopasowaniem po granicy kropki, rate limit 30 req/min z probabilistycznym GC (ochrona inodów), `X-Content-Type-Options: nosniff`.
+- **Dostępność (WCAG AA)** — kontrast stopki atrybucji ≥ 4.5:1 (7.15:1), karuzela agregatora oznaczona `role="region"`.
 - **Uniwersalność** — działa z każdym CMS: WordPress, Drupal, Craft CMS, Next.js, Hugo, Jekyll, Astro i czysty HTML.
 
 ---
@@ -31,7 +32,7 @@ Wklej w szablonie strony lub bloku HTML:
 
 ```html
 <!-- Skrypt widgetu (CDN lub własny serwer) -->
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0" defer></script>
+<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
 
 <!-- Tryb pojedynczego miasta -->
 <mo-weather mode="single" city-id="katowice"

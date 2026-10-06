@@ -1,7 +1,9 @@
 /*!
- * MO Weather Widget v1.0.0 — Web Component <mo-weather>
+ * MO Weather Widget v1.0.1 — Web Component <mo-weather>
  * Shadow DOM (izolacja CSS), inline SVG (zero requestów), theming przez CSS vars.
  * Bezpieczeństwo: dane z API wstrzykane WYŁĄCZNIE przez textContent (zero innerHTML z payloadu).
+ * Dostępność (a11y): WCAG AA kontrast atrybucji (>= 4.5:1), role="region" w karuzeli aggregator, role="group" per karta.
+ * Wydajność: skeleton 170px i min-height: 170px eliminują Cumulative Layout Shift (CLS = 0).
  * Fallbacki: backend stale => badge; backend martwy => mirror z localStorage; brak danych => dyskretny komunikat.
  */
 (function () {
@@ -55,7 +57,7 @@
 
   var CSS = [
     ':host{display:block;contain:content;font-family:var(--mo-font,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);}',
-    '.wrap{min-height:96px;}',
+    '.wrap{min-height:170px;}',
     '.row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px;}',
     '.card{flex:0 0 auto;scroll-snap-align:start;min-width:150px;background:var(--mo-card,#fff);color:var(--mo-text,#1a1a1a);',
     'border:1px solid var(--mo-border,#e5e5e5);border-radius:var(--mo-radius,12px);padding:12px 14px;box-sizing:border-box;}',
@@ -68,9 +70,9 @@
     '.meta{font-size:12px;color:var(--mo-muted,#666);margin:6px 0 0;}',
     '.stale{display:inline-block;margin-top:8px;font-size:11px;color:#8a5a00;background:#fff4d6;border:1px solid #f0d896;',
     'border-radius:999px;padding:2px 8px;}',
-    '.foot{margin:8px 2px 0;font-size:10px;color:var(--mo-muted,#999);}',
-    '.foot a{color:inherit;}',
-    '.skel{height:96px;border-radius:var(--mo-radius,12px);background:linear-gradient(90deg,#eee 25%,#f7f7f7 50%,#eee 75%);',
+    '.foot{margin:8px 2px 0;font-size:11px;color:var(--mo-foot,#595959);}',
+    '.foot a{color:inherit;text-decoration:underline;}',
+    '.skel{height:170px;border-radius:var(--mo-radius,12px);background:linear-gradient(90deg,#eee 25%,#f7f7f7 50%,#eee 75%);',
     'background-size:200% 100%;animation:mo-sh 1.2s infinite;}',
     '@keyframes mo-sh{to{background-position:-200% 0;}}',
     '@media (prefers-reduced-motion:reduce){.skel{animation:none;}}',
@@ -147,6 +149,11 @@
       }
       this._root.textContent = '';
       var row = el('div', 'row');
+      if ((this.getAttribute('mode') || 'single') === 'aggregator') {
+        row.setAttribute('role', 'region');
+        row.setAttribute('aria-label', 'Prognoza pogody dla wybranych miast');
+        row.setAttribute('tabindex', '0');
+      }
       var any = false;
 
       results.forEach(function (res, i) {

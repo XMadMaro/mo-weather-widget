@@ -1,4 +1,4 @@
-# MO Weather Widget — Specyfikacja Techniczna v1.0.0
+# MO Weather Widget — Specyfikacja Techniczna v1.0.1
 
 ## 1. Architektura
 
@@ -14,15 +14,16 @@
 │         Backend Proxy (PHP)         │
 │  ┌───────────────────────────────┐  │
 │  │ 1. CORS check (allowlist)     │  │
-│  │ 2. Rate limit (30 req/min)    │  │
+│  │ 2. Rate limit + GC (30/min)   │  │
 │  │ 3. Cache check (60 min TTL)   │  │
+│  │ 4. Circuit Breaker (backoff)  │  │
 │  └───────────────────────────────┘  │
 └──────┬──────────────────┬───────────┘
        │                  │
        ▼                  ▼
 ┌──────────────┐    ┌──────────────┐
 │ Cache świeży │    │ Open-Meteo   │
-│ (< 60 min)   │    │ API (icon_seamless)│
+│ (< 60 min)   │    │ API (cURL/ctx)│
 └──────┬───────┘    └──────┬───────┘
        │                   │
        │                   ▼
@@ -32,7 +33,7 @@
        │            └──────┬───────┘
        ▼                   ▼
 ┌─────────────────────────────────────┐
-│  JSON response (z ETag + is_stale)  │
+│  JSON response (ETag + Server-Time) │
 └──────┬──────────────────────────────┘
        │
        ▼
@@ -40,7 +41,7 @@
 │   Frontend Web Component            │
 │  ┌───────────────────────────────┐  │
 │  │ 1. Fetch data                 │  │
-│  │ 2. Render Shadow DOM          │  │
+│  │ 2. Render Shadow DOM (CLS=0)  │  │
 │  │ 3. Fallback: localStorage     │  │
 │  └───────────────────────────────┘  │
 └──────┬──────────────────────────────┘
@@ -55,17 +56,21 @@
 ### Komponenty
 
 #### Backend (`weather-api.php`)
-- **Rola:** Proxy + cache + rate limiting
+- **Rola:** Proxy + cache + rate limiting + circuit breaker
 - **Język:** PHP 8.1+ (strict_types)
-- **Zależności:** Brak (tylko wbudowane funkcje: curl, json, flock)
+- **Zależności:** Brak (funkcje wbudowane: curl z fallbackiem na stream context, json, flock)
 - **Cache:** Plikowy (`../var/cache/city_{id}.json`), poza webrootem
-- **Rate limiting:** File-based token bucket, 30 req/60s per hash IP
+- **Circuit Breaker:** Marker `backoff_{city}.json` (60s negative cache) zapobiega thundering herd przy awariach upstream
+- **Rate limiting:** File-based token bucket, 30 req/60s per hash IP z probabilistycznym GC (1% szans na cleanup plików starszych niż 24h)
+- **Nagłówki bezpieczeństwa:** `X-Content-Type-Options: nosniff`
 
 #### Frontend (`weather-widget.js`)
 - **Rola:** Web Component `<mo-weather>`
 - **Język:** Vanilla JS (ES6+, zero transpilacji)
 - **Zależności:** Brak (zero npm packages)
 - **Izolacja:** Shadow DOM (style nie kolidują z portalem)
+- **Layout Shift:** Stała rezerwacja wysokości 170px (`min-height: 170px`) na kontenerze i skeletonie (CLS = 0)
+- **Dostępność (a11y):** Kontrast stopki zgodny z WCAG AA (≥ 4.5:1), karuzela agregatora z `role="region"` i `aria-label`
 - **Fallback:** 3 warstwy (API → cache backend → localStorage)
 
 ---
@@ -85,6 +90,14 @@ Origin: https://portal.example.com
 | `city` | string | TAK      | ID miasta z allowlisty: `katowice`, `gliwice`, `sosnowiec`, `bytom`, `zabrze` |
 
 ### Response (200 OK)
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+X-Content-Type-Options: nosniff
+ETag: "9f83c1b..."
+Server-Time: 1728003600
+Access-Control-Allow-Origin: https://portal.example.com
+```
 ```json
 {
   "city": "katowice",
@@ -96,7 +109,6 @@ Origin: https://portal.example.com
   "temp_min": 7,
   "fetched_at": 1728000000,
   "last_updated_timestamp": 1728000000,
-  "server_time": 1728003600,
   "source": "open-meteo icon_seamless",
   "attribution": "Dane pogodowe: Open-Meteo.com (CC-BY 4.0)",
   "is_stale": false,
@@ -116,11 +128,12 @@ Origin: https://portal.example.com
 | `temp_min`               | int    | Minimalna temperatura dnia (°C)                                      |
 | `fetched_at`             | int    | Timestamp (Unix) pobrania danych z Open-Meteo                        |
 | `last_updated_timestamp` | int    | Timestamp ostatniej aktualizacji (alias `fetched_at`)                |
-| `server_time`            | int    | Timestamp serwera przy generowaniu odpowiedzi                        |
 | `source`                 | string | Źródło danych (np. "open-meteo icon_seamless")                       |
 | `attribution`            | string | Atrybucja licencyjna (wymóg CC-BY 4.0)                               |
 | `is_stale`               | bool   | `true` jeśli dane z cache >60 min (API padło), `false` jeśli świeże  |
 | `cache`                  | string | Stan cache: `fresh` (<60 min), `live` (odświeżony), `stale` (awaria) |
+
+> **Uwaga dot. ETag i `server_time`**: Dynamiczny `server_time` serwowany jest w nagłówku HTTP `Server-Time`, a nie w ciele JSON. Dzięki temu treść JSON jest w 100% deterministyczna, a nagłówek `ETag` pozwala na poprawne zwracanie odpowiedzi `304 Not Modified`.
 
 ### Response (400 Bad Request)
 ```json
@@ -168,7 +181,12 @@ Origin: https://portal.example.com
 ### Rate limiting
 - **Limit:** 30 requestów na 60 sekund per hash IP
 - **Implementacja:** File-based token bucket (`../var/cache/rl_{hash}.json`)
+- **Garbage Collection (GC):** Probabilistyczne czyszczenie (1% requestów) usuwa pliki `rl_*.json` starsze niż 24h, zapobiegając wyczerpaniu inodów na dysku
 - **Fail-open:** Błąd FS nie blokuje requestu (log warning)
+
+### Circuit Breaker & Thundering Herd
+- **Problem:** Awaria API Open-Meteo blokuje procesy PHP na czas timeoutu (8s). Przy setkach jednoczesnych żądań powoduje to wyczerpanie workerów PHP-FPM.
+- **Rozwiązanie:** Marker `../var/cache/backoff_{city}.json` z 60-sekundowym TTL (negative cache). Przy awarii kolejne requesty natychmiast serwują stary cache bez odpytywania zewnętrznego API.
 
 ### Sanitization (Frontend)
 - **Zasada:** Dane z API wstrzykiwane **wyłącznie przez `textContent`** (zero `innerHTML` z payloadu)
@@ -178,6 +196,7 @@ Origin: https://portal.example.com
 - **Lokalizacja:** `../var/cache` (poza webrootem)
 - **Ochrona:** `.htaccess: Require all denied` (Apache) / `deny all` (nginx)
 - **Zapis atomowy:** `tmp` + `rename()` (brak uszkodzonych odczytów)
+- **Nagłówek:** `X-Content-Type-Options: nosniff`
 
 ---
 
@@ -185,7 +204,7 @@ Origin: https://portal.example.com
 
 ### Backend
 - **PHP:** 8.1+ (strict_types, str_ends_with)
-- **Rozszerzenia:** curl, json
+- **Rozszerzenia:** `json` (wymagane), `curl` (zalecane, z automatycznym fallbackiem na `file_get_contents` ze stream context i timeoutem 8s przy braku `ext-curl`)
 - **Uprawnienia FS:** write do `../var/cache` (lub fallback `.cache`)
 - **Web server:** Apache (z .htaccess) / nginx (z location block)
 
@@ -216,7 +235,7 @@ Origin: https://portal.example.com
 1. Hostuj `dist/weather-widget.min.js` na CDN (własny / jsDelivr / unpkg)
 2. Wklej w szablonie portalu:
    ```html
-   <script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0" defer></script>
+   <script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
    <mo-weather mode="single" city-id="katowice"
                api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
    ```
@@ -274,7 +293,7 @@ for i in {1..35}; do curl -s "https://api.example.com/weather-api.php?city=katow
 
 ### Aktualizacje
 - **Semver:** Zmiany API tylko additive (nowe pola, brak breaking changes)
-- **Wersjonowanie plików:** Query string `?v=1.0.0` (cache busting)
+- **Wersjonowanie plików:** Query string `?v=1.0.1` (cache busting)
 - **Changelog:** Plik `CHANGELOG.md` w repo
 
 ### Monitoring

@@ -3,14 +3,19 @@ declare(strict_types=1);
 
 /**
  * MO Weather Widget — proxy backend z cache (PHP 8.1+)
- * Wersja: 1.0.0
+ * Wersja: 1.0.1
  *
- * Decyzje architektoniczne (po audycie bezpieczeństwa):
+ * Decyzje architektoniczne (po audycie bezpieczeństwa i odporności):
  *  - przyjmuje WYŁĄCZNIE id miasta z allowlisty (brak dowolnych lat/lon => brak open-relay),
  *  - cache per miasto, zapis atomowy (tmp+rename) + flock => brak uszkodzonych odczytów,
  *  - cache POZA webrootem (../var/cache) + .htaccess "Require all denied",
  *  - CORS z dopasowaniem po granicy kropki (zlyslazag.pl NIE przejdzie jako slazag.pl),
  *  - rate limiting per hash IP (stałe okno 60 s, fail-open przy błędzie FS),
+ *  - probabilistyczny garbage collector dla plików rate limitera (ochrona przed wyczerpaniem inodów),
+ *  - circuit breaker / negative cache: awaria Open-Meteo blokuje ponowne próby na 60s (ochrona przed thundering herd),
+ *  - guard ext-curl z bezpiecznym fallbackiem na stream kontekst file_get_contents,
+ *  - ETag oparty o stabilne body (server_time przeniesiony do nagłówka Server-Time, 304 działa prawidłowo),
+ *  - nagłówek X-Content-Type-Options: nosniff dla ochrony MIME-sniffing,
  *  - graceful degradation: API pada => stary cache z is_stale=true, nigdy exception w UI.
  */
 
@@ -31,10 +36,11 @@ const MO_CITIES = [
 ];
 
 const MO_CACHE_TTL   = 3600;  // świeżość cache: 60 min
+const MO_BACKOFF_TTL = 60;    // cooldown circuit breakera: 60 s po awarii API
 const MO_HTTP_MAXAGE = 300;   // Cache-Control dla przeglądarki/CDN
 const MO_RATE_MAX    = 30;    // requestów na okno
 const MO_RATE_WINDOW = 60;    // sekund
-const MO_API_TIMEOUT = 8;     // timeout curl (s)
+const MO_API_TIMEOUT = 8;     // timeout curl / stream (s)
 const MO_API_CONNECT = 3;     // timeout połączenia (s)
 
 /* ---------- HELPERS ---------- */
@@ -42,6 +48,7 @@ const MO_API_CONNECT = 3;     // timeout połączenia (s)
 function mo_json(mixed $data, int $code = 200): never {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -82,11 +89,25 @@ function mo_cors(): void {
     mo_json(['error' => 'origin not allowed'], 403);
 }
 
-/** Rate limit: stałe okno, plik per hash IP, flock. Fail-open przy błędzie FS. */
+/** Rate limit: stałe okno, plik per hash IP, flock + probabilistyczne GC. Fail-open przy błędzie FS. */
 function mo_rate_limit(string $dir): void {
+    $now = time();
+
+    // Probabilistyczne czyszczenie starych plików rate limitera (1% szansy, pliki >24h)
+    if (random_int(1, 100) === 1) {
+        $cutoff = $now - 86400;
+        $files = glob($dir . '/rl_*.json');
+        if (is_array($files)) {
+            foreach ($files as $f) {
+                if (@filemtime($f) < $cutoff) {
+                    @unlink($f);
+                }
+            }
+        }
+    }
+
     $ip   = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $file = $dir . '/rl_' . substr(hash('sha256', $ip . '|mo-weather'), 0, 16) . '.json';
-    $now  = time();
     $fh   = @fopen($file, 'c+');
     if (!$fh) return;
     flock($fh, LOCK_EX);
@@ -124,7 +145,24 @@ function mo_write_cache(string $path, array $data): void {
     }
 }
 
-/** Open-Meteo, model icon_d2. Null przy jakimkolwiek błędzie (timeout/HTTP/JSON). */
+/** Circuit Breaker: sprawdzenie stanu backoff (negative cache) */
+function mo_is_in_backoff(string $backoffFile): bool {
+    if (!is_file($backoffFile)) return false;
+    $raw = @file_get_contents($backoffFile);
+    if (!$raw) return false;
+    $state = json_decode($raw, true);
+    return is_array($state) && isset($state['failed_at']) && (time() - (int) $state['failed_at']) < MO_BACKOFF_TTL;
+}
+
+function mo_set_backoff(string $backoffFile): void {
+    @file_put_contents($backoffFile, json_encode(['failed_at' => time()]));
+}
+
+function mo_clear_backoff(string $backoffFile): void {
+    if (is_file($backoffFile)) @unlink($backoffFile);
+}
+
+/** Open-Meteo, model icon_seamless. Null przy jakimkolwiek błędzie (timeout/HTTP/JSON/brak curl). */
 function mo_fetch_meteo(float $lat, float $lon): ?array {
     $url = 'https://api.open-meteo.com/v1/forecast?' . http_build_query([
         'latitude'      => $lat,
@@ -135,19 +173,47 @@ function mo_fetch_meteo(float $lat, float $lon): ?array {
         'current'       => 'temperature_2m,weather_code,wind_speed_10m',
         'daily'         => 'temperature_2m_max,temperature_2m_min',
     ]);
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => MO_API_TIMEOUT,
-        CURLOPT_CONNECTTIMEOUT => MO_API_CONNECT,
-        CURLOPT_FOLLOWLOCATION => false,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERAGENT      => 'mo-weather-proxy/1.0',
-    ]);
-    $raw  = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    curl_close($ch);
-    if (!is_string($raw) || $code !== 200) return null;
+
+    $raw  = null;
+    $code = 0;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => MO_API_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => MO_API_CONNECT,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_USERAGENT      => 'mo-weather-proxy/1.0.1',
+        ]);
+        $raw  = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if (!is_string($raw) || $code !== 200) return null;
+    } else {
+        // Fallback dla środowisk bez ext-curl
+        $ctx = stream_context_create([
+            'http' => [
+                'method'        => 'GET',
+                'timeout'       => MO_API_TIMEOUT,
+                'user_agent'    => 'mo-weather-proxy/1.0.1',
+                'ignore_errors' => true,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+            ],
+        ]);
+        $raw = @file_get_contents($url, false, $ctx);
+        if (!is_string($raw)) return null;
+        if (isset($http_response_header) && is_array($http_response_header)) {
+            if (preg_match('{HTTP/\S*\s+(\d{3})}', $http_response_header[0] ?? '', $m)) {
+                $code = (int) $m[1];
+                if ($code !== 200) return null;
+            }
+        }
+    }
+
     $j = json_decode($raw, true);
     if (!is_array($j) || !isset($j['current']['temperature_2m'])) return null;
     return [
@@ -163,7 +229,11 @@ function mo_fetch_meteo(float $lat, float $lon): ?array {
 
 mo_cors();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-if ($method === 'OPTIONS') { http_response_code(204); exit; }
+if ($method === 'OPTIONS') {
+    header('X-Content-Type-Options: nosniff');
+    http_response_code(204);
+    exit;
+}
 if (!in_array($method, ['GET', 'HEAD'], true)) mo_json(['error' => 'method not allowed'], 405);
 
 $dir = mo_cache_dir();
@@ -174,18 +244,30 @@ if (!preg_match('/^[a-z0-9-]{2,32}$/', $city) || !isset(MO_CITIES[$city])) {
     mo_json(['error' => 'unknown city', 'available' => array_keys(MO_CITIES)], 400);
 }
 
-$cacheFile = $dir . '/city_' . $city . '.json';
-$cached    = mo_read_cache($cacheFile);
-$now       = time();
+$cacheFile   = $dir . '/city_' . $city . '.json';
+$backoffFile = $dir . '/backoff_' . $city . '.json';
+$cached      = mo_read_cache($cacheFile);
+$now         = time();
 
 if ($cached !== null && ($now - (int) $cached['fetched_at']) < MO_CACHE_TTL) {
     // Świeży cache (< 60 min) — serwujemy bez dotykania API
-    $payload         = $cached;
+    $payload             = $cached;
     $payload['is_stale'] = false;
     $payload['cache']    = 'fresh';
+} elseif (mo_is_in_backoff($backoffFile)) {
+    // CIRCUIT BREAKER / NEGATIVE CACHE: Upstream padł niedawno -> natychmiast serve stale bez czekania 8s
+    if ($cached !== null) {
+        $payload             = $cached;
+        $payload['is_stale'] = true;
+        $payload['cache']    = 'stale';
+    } else {
+        header('Retry-After: ' . MO_BACKOFF_TTL);
+        mo_json(['error' => 'weather unavailable (circuit breaker active)', 'retry_after_seconds' => MO_BACKOFF_TTL], 503);
+    }
 } else {
     $live = mo_fetch_meteo(MO_CITIES[$city]['lat'], MO_CITIES[$city]['lon']);
     if ($live !== null) {
+        mo_clear_backoff($backoffFile);
         $payload = array_merge([
             'city'        => $city,
             'label'       => MO_CITIES[$city]['label'],
@@ -196,25 +278,37 @@ if ($cached !== null && ($now - (int) $cached['fetched_at']) < MO_CACHE_TTL) {
         $payload['is_stale'] = false;
         $payload['cache']    = 'live';
         mo_write_cache($cacheFile, $payload);
-    } elseif ($cached !== null) {
-        // GRACEFUL DEGRADATION: API padło => stary cache + flaga, zero błędu w UI
-        $payload         = $cached;
-        $payload['is_stale'] = true;
-        $payload['cache']    = 'stale';
     } else {
-        header('Retry-After: 300');
-        mo_json(['error' => 'weather unavailable', 'retry_after_seconds' => 300], 503);
+        // Awaria upstreamu: aktywacja circuit breakera (negative cache)
+        mo_set_backoff($backoffFile);
+        if ($cached !== null) {
+            // GRACEFUL DEGRADATION: API padło => stary cache + flaga, zero błędu w UI
+            $payload             = $cached;
+            $payload['is_stale'] = true;
+            $payload['cache']    = 'stale';
+        } else {
+            header('Retry-After: 300');
+            mo_json(['error' => 'weather unavailable', 'retry_after_seconds' => 300], 503);
+        }
     }
 }
 
 $payload['last_updated_timestamp'] = (int) $payload['fetched_at'];
-$payload['server_time']            = $now;
 
+// ETag FIX: usunięto dynamiczne server_time z JSON body (zmieniało się co sekundę, psując ETag).
+// Czas serwera przekazujemy w nagłówku HTTP Server-Time.
 $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 $etag = '"' . md5($body) . '"';
+
+header('X-Content-Type-Options: nosniff');
+header('Server-Time: ' . $now);
 header('Cache-Control: public, max-age=' . MO_HTTP_MAXAGE);
 header('ETag: ' . $etag);
-if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) { http_response_code(304); exit; }
+if (trim($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
+    http_response_code(304);
+    exit;
+}
 
 header('Content-Type: application/json; charset=utf-8');
 echo $body;
+

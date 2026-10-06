@@ -11,13 +11,13 @@ W edytorze blokowym (Gutenberg):
 2. Wklej poniższy kod:
 ```html
 <!-- MO Weather Widget -->
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0" defer></script>
+<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
 <mo-weather mode="single" city-id="katowice" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
 ```
 3. Opcjonalnie: aby załadować skrypt globalnie raz dla całego motywu, dodaj do `functions.php`:
 ```php
 function mo_weather_enqueue() {
-    wp_enqueue_script('mo-weather-widget', 'https://cdn.TWOJA-DOMENA/weather-widget.min.js', [], '1.0.0', true);
+    wp_enqueue_script('mo-weather-widget', 'https://cdn.TWOJA-DOMENA/weather-widget.min.js', [], '1.0.1', true);
 }
 add_action('wp_enqueue_scripts', 'mo_weather_enqueue');
 ```
@@ -31,7 +31,7 @@ add_action('wp_enqueue_scripts', 'mo_weather_enqueue');
 3. W polu formatu tekstu ustaw **Full HTML** (brak filtrów wycinających custom elements i tagi `<script>`).
 4. Wklej:
 ```html
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0" defer></script>
+<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
 <mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,bytom" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
 ```
 
@@ -42,9 +42,10 @@ add_action('wp_enqueue_scripts', 'mo_weather_enqueue');
 W szablonie `.twig` (np. `_includes/header.twig`):
 ```twig
 {% block weather_widget %}
-  <script src="{{ craft.app.config.general.cdnUrl }}/weather-widget.min.js?v=1.0.0" defer></script>
+  {# W standardowym szablonie Craft CMS użyj aliasu @web lub zmiennej środowiskowej #}
+  <script src="{{ alias('@web') }}/assets/weather-widget.min.js?v=1.0.1" defer></script>
   <mo-weather mode="single" city-id="katowice"
-              api-url="{{ craft.app.config.general.apiUrl }}/weather-api.php"></mo-weather>
+              api-url="{{ alias('@web') }}/weather-api.php"></mo-weather>
 {% endblock %}
 ```
 
@@ -62,7 +63,7 @@ export default function WeatherSection() {
   return (
     <>
       <Script
-        src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0"
+        src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1"
         strategy="lazyOnload"
       />
       {/* @ts-ignore - deklaracja custom elementu w JSX */}
@@ -78,7 +79,7 @@ export default function WeatherSection() {
 
 W pliku partiala (np. `layouts/partials/weather.html`):
 ```html
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.0" defer></script>
+<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
 <mo-weather mode="single" city-id="katowice" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
 ```
 

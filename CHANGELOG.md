@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Automated unit test workflow for release pipelines.
+## [1.0.1] - 2026-10-06
 
-## [1.0.0] - 2026-10-05
+### Fixed
+- **Circuit Breaker (Negative Cache)**: Added 60s backoff file marker (`backoff_{city}.json`) upon upstream Open-Meteo failure. Prevents thundering herd stalls (8s timeouts) under high concurrent load by instantly serving stale cache without retrying dead upstream.
+- **Rate Limiter GC**: Added probabilistic garbage collection (1% execution frequency per request) purging IP rate limit tracking files (`rl_*.json`) older than 24 hours to prevent inode exhaustion on shared hostings.
+- **CLS (Cumulative Layout Shift)**: Adjusted skeleton `.skel` height and `.wrap` container min-height to `170px` (measured rendered card height), eliminating 45-75px content layout shifts during hydration.
+- **Deterministic ETag & 304 Caching**: Extracted dynamic `server_time` from JSON body into dedicated `Server-Time` HTTP header. Allows upstream cache payloads to produce static MD5 ETags and restores operational `304 Not Modified` browser caching.
+- **ext-curl Extension Guard**: Wrapped cURL calls with `function_exists('curl_init')` check and added fallback to `file_get_contents()` using stream context and 8-second timeout.
+- **Documentation Parity**: Corrected Craft CMS integration snippets in `docs/INTEGRATION.md` to use valid `alias('@web')` syntax instead of deprecated config keys.
+- **Security Headers**: Added `X-Content-Type-Options: nosniff` header to all API responses to prevent MIME-sniffing attacks.
+- **WCAG AA Color Contrast**: Adjusted footer attribution text and link color (`--mo-foot`, `#595959`) to achieve 7.15:1 contrast ratio against white card background (exceeding WCAG AA 4.5:1 requirement). Added link text underline for accessibility.
+- **Aggregator Carousel Accessibility**: Added `role="region"`, `aria-label="Prognoza pogody dla wybranych miast"`, and `tabindex="0"` to aggregator scroll container for keyboard and screen reader accessibility.
+- **Reproducible Build Pipeline**: Pinned `terser` to exact version `5.39.0` with `--comments '/^!/'` banner preservation in `scripts/build.sh` and added automated test suite (`tests/widget.test.js`, `scripts/test-api.sh`).
 
 ### Added
 - **Web Component `<mo-weather>`**:
