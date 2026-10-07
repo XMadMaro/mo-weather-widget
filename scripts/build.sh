@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "==> Building mo-weather-widget v1.0.1 (reproducible build)..."
+echo "==> Building mo-weather-widget v2.0.0 (reproducible build)..."
 mkdir -p dist
 
 # Audit #10: Reproducible build z przypiętą wersją terser 5.39.0
@@ -19,6 +19,7 @@ fi
 
 cp src/weather-widget.js dist/weather-widget.js
 cp src/weather-api.php dist/weather-api.php
+cp src/cities.php dist/cities.php
 
 echo "✓ Build complete: dist/"
 ls -lh dist/
