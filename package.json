@@ -1,12 +1,13 @@
 {
   "name": "mo-weather-widget",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Zero-dependency, standalone weather Web Component with secure PHP caching proxy for editorial portals",
   "main": "dist/weather-widget.js",
   "scripts": {
     "build": "bash scripts/build.sh",
-    "test": "node --check dist/weather-widget.js && node --check src/weather-widget.js && node tests/widget.test.js && bash scripts/test-api.sh",
+    "test": "node --check dist/weather-widget.js && node --check src/weather-widget.js && node tests/widget.test.js && npm run test:cities && bash scripts/test-api.sh",
     "test:unit": "node tests/widget.test.js",
+    "test:cities": "node scripts/check-cities-test.mjs && php scripts/check-cities.php --self-test && php scripts/check-cities.php --fixtures",
     "test:api": "bash scripts/test-api.sh"
   },
   "keywords": [

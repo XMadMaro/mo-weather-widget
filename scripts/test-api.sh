@@ -138,7 +138,7 @@ if (!$match) { echo "FAIL: If-None-Match should match ETag\n"; exit(1); }
 echo "✓ ETag & 304 stability passed.\n";
 '
 
-echo "--> [6/6] Testing ext-curl guard & security headers in source..."
+echo "--> [6/11] Testing ext-curl guard & security headers in source..."
 run_php -r '
 $src = file_get_contents("src/weather-api.php");
 if (!str_contains($src, "function_exists('\''curl_init'\'')")) {
@@ -151,6 +151,103 @@ if (!str_contains($src, "Server-Time:")) {
     echo "FAIL: weather-api.php must send Server-Time header\n"; exit(1);
 }
 echo "✓ ext-curl guard and security headers passed.\n";
+'
+
+echo "--> [7/11] Testing type=health endpoint (v2.0 contract)..."
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["type"] = "health";
+unset($_GET["city"]);
+register_shutdown_function(function() {
+    $out = ob_get_clean();
+    $data = json_decode($out, true);
+    if (!($data["ok"] ?? false)) { echo "FAIL: health ok must be true\n"; exit(1); }
+    if (($data["version"] ?? "") !== "2.0.0") { echo "FAIL: version must be 2.0.0\n"; exit(1); }
+    if (($data["cities_count"] ?? 0) !== 14) { echo "FAIL: cities_count must be 14\n"; exit(1); }
+    echo "✓ Health endpoint passed.\n";
+});
+ob_start();
+require "src/weather-api.php";
+'
+
+echo "--> [8/11] Testing type=air endpoint logic (GIOŚ & IOŚ-PIB)..."
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["city"] = "katowice";
+$_GET["type"] = "air";
+register_shutdown_function(function() {
+    $out = ob_get_clean();
+    $data = json_decode($out, true);
+    if (!isset($data["measurement"], $data["forecast"])) { echo "FAIL: air payload missing measurement/forecast\n"; exit(1); }
+    if (!is_array($data["attribution"]) || count($data["attribution"]) < 2) { echo "FAIL: attribution missing GIOŚ/IOŚ\n"; exit(1); }
+    echo "✓ Air quality endpoint passed.\n";
+});
+ob_start();
+require "src/weather-api.php";
+'
+
+echo "--> [9/11] Testing type=daily7 endpoint (7 days aggregation)..."
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["city"] = "katowice";
+$_GET["type"] = "daily7";
+register_shutdown_function(function() {
+    $out = ob_get_clean();
+    $data = json_decode($out, true);
+    if (count($data["days"] ?? []) !== 7) { echo "FAIL: daily7 must return exactly 7 days\n"; exit(1); }
+    $first = $data["days"][0];
+    if (!isset($first["date"], $first["temp_max"], $first["temp_min"], $first["weekday_label"], $first["weather_code"])) {
+        echo "FAIL: daily7 day structure invalid\n"; exit(1);
+    }
+    echo "✓ Daily7 forecast endpoint passed.\n";
+});
+ob_start();
+require "src/weather-api.php";
+'
+
+echo "--> [10/11] Testing type=nowcast endpoint (rain alert series)..."
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["city"] = "katowice";
+$_GET["type"] = "nowcast";
+register_shutdown_function(function() {
+    $out = ob_get_clean();
+    $data = json_decode($out, true);
+    if (!isset($data["alert"], $data["series"])) { echo "FAIL: nowcast missing alert/series\n"; exit(1); }
+    if (!isset($data["alert"]["active"], $data["alert"]["kind"], $data["alert"]["text"])) {
+        echo "FAIL: nowcast alert structure invalid\n"; exit(1);
+    }
+    if (($data["label_type"] ?? "") !== "informacja o opadach") {
+        echo "FAIL: label_type must be informacja o opadach\n"; exit(1);
+    }
+    echo "✓ Nowcast rain alert endpoint passed.\n";
+});
+ob_start();
+require "src/weather-api.php";
+'
+
+echo "--> [11/11] Testing Rate Limiter: cache-hits do NOT increment miss counter (Audit #7)..."
+run_php -r '
+$tmpDir = sys_get_temp_dir() . "/rl_cachehit_test_" . uniqid();
+mkdir($tmpDir, 0777, true);
+$ip = "127.0.0.1";
+$salt = date("Ymd");
+$file = $tmpDir . "/rl_" . substr(hash("sha256", $ip . "|" . $salt . "|mo-weather"), 0, 16) . ".json";
+
+$_SERVER["REMOTE_ADDR"] = $ip;
+$_GET["city"] = "katowice";
+$_GET["type"] = "health";
+ob_start();
+require_once "src/weather-api.php";
+ob_end_clean();
+
+mo_rate_limit($tmpDir);
+$state = json_decode(file_get_contents($file), true);
+if (($state["count"] ?? 0) !== 1) { echo "FAIL: first miss must set count to 1\n"; exit(1); }
+
+@unlink($file);
+@rmdir($tmpDir);
+echo "✓ Rate limiter cache-hit protection passed.\n";
 '
 
 echo "✓ All API integration tests passed successfully!"

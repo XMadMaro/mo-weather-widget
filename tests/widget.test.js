@@ -20,11 +20,11 @@ const srcJs = fs.readFileSync(srcJsPath, 'utf8');
 const distJs = fs.readFileSync(distJsPath, 'utf8');
 const distMinJs = fs.readFileSync(distMinJsPath, 'utf8');
 
-// Test 1: Wersja 1.0.1 w nagłówkach
+// Test 1: Wersja 2.0.0 w nagłówkach
 console.log('  [1/7] Checking version tags...');
-assert(srcJs.includes('v1.0.1'), 'src/weather-widget.js must declare v1.0.1');
-assert(distJs.includes('v1.0.1'), 'dist/weather-widget.js must declare v1.0.1');
-assert(distMinJs.includes('v1.0.1'), 'dist/weather-widget.min.js must preserve v1.0.1 header');
+assert(srcJs.includes('v2.0.0'), 'src/weather-widget.js must declare v2.0.0');
+assert(distJs.includes('v2.0.0'), 'dist/weather-widget.js must declare v2.0.0');
+assert(distMinJs.includes('v2.0.0'), 'dist/weather-widget.min.js must preserve v2.0.0 header');
 
 // Test 2: CLS Fix (Audit #3: min-height i skel 170px)
 console.log('  [2/7] Checking CLS fixes (height: 170px, min-height: 170px)...');
