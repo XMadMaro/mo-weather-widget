@@ -1,38 +1,60 @@
-# Instrukcja Integracji: MO Weather Widget
+# Instrukcja Integracji: MO Weather Widget (v2.0)
 
-Komponent `<mo-weather>` jest w 100% samowystarczalny (Vanilla Web Component z Shadow DOM) i integruje się z dowolnym systemem CMS lub generatorem stron statycznych bez konfliktów styli CSS.
+Komponent `<mo-weather>` jest w 100% samowystarczalny (Vanilla Web Component z Shadow DOM) i integruje się z dowolnym systemem CMS lub generatorem stron statycznych bez konfliktów stylów CSS.
+
+W wersji 2.0 widget obsługuje modułową architekturę za pomocą atrybutu `modules`:
+- `current` — bieżąca pogoda (domyślny moduł)
+- `air` — jakość powietrza (pomiary GIOŚ lub prognozy IOŚ-PIB)
+- `daily7` — prognoza na 7 dni (MET Norway)
+- `nowcast` — alert opadów deszczu na najbliższe godziny
+
+Gdy atrybut `modules` nie zostanie podany, widget działa w trybie **zgodności wstecznej** (renderuje wyłącznie moduł `current`).
 
 ---
 
-## 1. WordPress
+## 1. WordPress (Gutenberg / Klasyczny Edytor)
 
 W edytorze blokowym (Gutenberg):
 1. Dodaj blok **Własny HTML** (Custom HTML) w wybranym miejscu strony lub szablonu (np. sidebar, header).
 2. Wklej poniższy kod:
+
 ```html
-<!-- MO Weather Widget -->
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
-<mo-weather mode="single" city-id="katowice" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
+<!-- MO Weather Widget v2.0 -->
+<script src="https://cdn.twojadomena.pl/weather-widget.min.js?v=2.0.0" defer></script>
+
+<!-- Podstawowa karta pogody (kompatybilność wsteczna) -->
+<mo-weather mode="single" city-id="katowice" api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
+
+<!-- Pełny zestaw modułów (pogoda, jakość powietrza, 7 dni, alert deszczu) -->
+<mo-weather mode="single" city-id="katowice"
+            modules="current,air,daily7,nowcast"
+            api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
 ```
-3. Opcjonalnie: aby załadować skrypt globalnie raz dla całego motywu, dodaj do `functions.php`:
+
+3. Opcjonalnie: aby załadować skrypt globalnie dla całego motywu, dodaj do `functions.php`:
 ```php
 function mo_weather_enqueue() {
-    wp_enqueue_script('mo-weather-widget', 'https://cdn.TWOJA-DOMENA/weather-widget.min.js', [], '1.0.1', true);
+    wp_enqueue_script('mo-weather-widget', 'https://cdn.twojadomena.pl/weather-widget.min.js', [], '2.0.0', true);
 }
 add_action('wp_enqueue_scripts', 'mo_weather_enqueue');
 ```
 
 ---
 
-## 2. Drupal (8 / 9 / 10)
+## 2. Drupal (8 / 9 / 10 / 11)
 
 1. Przejdź do **Struktura > Układ bloków** (Structure > Block layout).
 2. Dodaj **Własny blok** (Custom block).
 3. W polu formatu tekstu ustaw **Full HTML** (brak filtrów wycinających custom elements i tagi `<script>`).
 4. Wklej:
 ```html
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
-<mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,bytom" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
+<script src="https://cdn.twojadomena.pl/weather-widget.min.js?v=2.0.0" defer></script>
+
+<!-- Karuzela agregatora z modułem jakości powietrza -->
+<mo-weather mode="aggregator"
+            cities="katowice,gliwice,sosnowiec,bytom,zabrze"
+            modules="current,air"
+            api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
 ```
 
 ---
@@ -42,12 +64,16 @@ add_action('wp_enqueue_scripts', 'mo_weather_enqueue');
 W szablonie `.twig` (np. `_includes/header.twig`):
 ```twig
 {% block weather_widget %}
-  {# W standardowym szablonie Craft CMS użyj aliasu @web lub zmiennej środowiskowej #}
-  <script src="{{ alias('@web') }}/assets/weather-widget.min.js?v=1.0.1" defer></script>
-  <mo-weather mode="single" city-id="katowice"
-              api-url="{{ alias('@web') }}/weather-api.php"></mo-weather>
+  {# W standardowym szablonie Craft CMS używamy aliasu @web lub zmiennej środowiskowej z app.yaml #}
+  <script src="{{ alias('@web') }}/assets/weather-widget.min.js?v=2.0.0" defer></script>
+  
+  <mo-weather mode="single"
+              city-id="katowice"
+              modules="current,air,daily7,nowcast"
+              api-url="{{ alias('@web') }}/api/weather-api.php"></mo-weather>
 {% endblock %}
 ```
+> **Uwaga:** Nie należy używać nieistniejących kluczy konfiguracyjnych w rodzaju `craft.app.config.general.cdnUrl`. Zalecany jest natywny `alias('@web')` lub jawny parametr z konfiguracji środowiskowej.
 
 ---
 
@@ -63,11 +89,16 @@ export default function WeatherSection() {
   return (
     <>
       <Script
-        src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1"
+        src="https://cdn.twojadomena.pl/weather-widget.min.js?v=2.0.0"
         strategy="lazyOnload"
       />
       {/* @ts-ignore - deklaracja custom elementu w JSX */}
-      <mo-weather mode="single" city-id="katowice" api-url="https://api.TWOJA-DOMENA/weather-api.php" />
+      <mo-weather
+        mode="single"
+        city-id="katowice"
+        modules="current,air,daily7,nowcast"
+        api-url="https://api.twojadomena.pl/weather-api.php"
+      />
     </>
   );
 }
@@ -79,13 +110,13 @@ export default function WeatherSection() {
 
 W pliku partiala (np. `layouts/partials/weather.html`):
 ```html
-<script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
-<mo-weather mode="single" city-id="katowice" api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
+<script src="https://cdn.twojadomena.pl/weather-widget.min.js?v=2.0.0" defer></script>
+<mo-weather mode="single" city-id="katowice" modules="current,air,daily7,nowcast" api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
 ```
 
 ---
 
-## 6. Personalizacja i Theming
+## 6. Personalizacja i Motywy CSS
 
 Stylizowanie komponentu odbywa się za pomocą zmiennych CSS ustawianych na tagu `<mo-weather>` lub dowolnym elemencie nadrzędnym:
 

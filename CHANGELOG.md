@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.1] - 2026-10-06
+## [2.0.0] - 2026-10-07
+
+### Added
+- **MET Norway Migration**: Fully migrated weather forecast provider from Open-Meteo to MET Norway `locationforecast/2.0/compact` under Creative Commons Attribution 4.0 (CC BY 4.0), providing 100% commercially legal and free coverage (0 PLN API fees).
+- **Expanded Coverage (14 Cities)**: Full metropolis support configured in `src/cities.php`: Katowice, Gliwice, Sosnowiec, Zabrze, Tychy, Dąbrowa Górnicza, Bytom, Chorzów, Świętochłowice, Ruda Śląska, Piekary Śląskie, Tarnowskie Góry, Knurów, and Będzin.
+- **Air Quality Module (`type=air`)**:
+  - Live sensor measurements via GIOŚ PJP API for 6 cities (PM10 across all 6; PM2,5 verified exclusively in Katowice; AQI index categories).
+  - Automatic fallback to 3-day PM10 forecast from IOŚ-PIB API for 8 cities lacking active GIOŚ stations.
+  - Clear source attribution badges distinguishing GIOŚ station measurements from IOŚ-PIB municipal/county forecasts.
+  - Exclusion of manual non-automated GIOŚ stations (Dąbrowa Górnicza sensor 5287, Zabrze 29679, Gliwice 5314) and silent fallback when PM2,5 is unavailable (renders "b.d." instead of false "0").
+- **7-Day Forecast Module (`type=daily7`)**: Localized 7-day outlook aggregated from MET Norway hourly timeseries with daily temperature ranges, rainfall sums, and WMO/MET weather symbols.
+- **Rain Nowcast Module (`type=nowcast`)**: Real-time precipitation information for the upcoming hour based on MET Norway precipitation data (`role="status"`, `aria-live="polite"`), labeled strictly as informational (respecting IMGW warning authority).
+- **Health Check Endpoint (`type=health`)**: Status inspection endpoint reporting module health and city inventory for automated monitoring.
+- **Diagnostics & Monitoring Tools**:
+  - `scripts/check-cities.php` CLI utility supporting `--self-test`, `--fixtures`, `--city`, `--format=json`, and `--record`.
+  - `scripts/check-cities-test.mjs` running 21 offline regression and validation assertions.
+  - GitHub Actions CI workflow in `.github/workflows/ci.yml` validating PHP linting, tests, build, and dist synchronization.
+- **Single-Flight Cache Concurrency**: File-based `.lock` with `flock` preventing redundant upstream requests during cache misses under high traffic.
+
+### Changed
+- **Rate Limiting Model**: Rate limiter counts only upstream cache misses; cache hits are free and do not increment the token bucket counter.
+- **Storage Isolation**: Client-side storage keys updated to `mo-weather:v2:{city}:{type}` to prevent cross-module key collisions.
+- **Web Component Modules**: Added `modules` attribute (`modules="current,air,daily7,nowcast"`) with default fallback to `current` ensuring 100% backward compatibility with v1.0.x embeds.
+
+### Fixed
+- Handled recent null values in GIOŚ measurement streams by selecting the latest non-empty timestamp.
+- Added automatic wind speed conversion from MET Norway m/s to km/h (`* 3.6`).
+- Fixed IOŚ-PIB SSL verification for Polish public administration internal CA certificates.
+
 
 ### Fixed
 - **Circuit Breaker (Negative Cache)**: Added 60s backoff file marker (`backoff_{city}.json`) upon upstream Open-Meteo failure. Prevents thundering herd stalls (8s timeouts) under high concurrent load by instantly serving stale cache without retrying dead upstream.

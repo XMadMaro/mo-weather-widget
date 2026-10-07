@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MO Weather Widget — demo lokalne</title>
+<title>MO Weather Widget v2.0 — demo lokalne</title>
 <style>
   body { font-family: system-ui, sans-serif; margin: 0; background: #f4f4f5; color: #111; }
   header { background: #111; color: #fff; padding: 16px 20px; }
   header h1 { font-size: 18px; margin: 0 0 6px; }
   header p { margin: 0; font-size: 13px; color: #bbb; }
-  main { max-width: 760px; margin: 24px auto; padding: 0 16px; display: grid; gap: 28px; }
+  main { max-width: 800px; margin: 24px auto; padding: 0 16px; display: grid; gap: 28px; }
   section { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; }
   h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .05em; color: #555; }
   .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -21,33 +21,147 @@
 
 <script>
   /* TRYB MOCK (?mock=1): przechwytuje fetch do weather-api.php BEZ serwera PHP.
-     Produkcja NIGDY nie używa mocka — widget gada wyłącznie z proxy. */
+     Produkcja NIGDY nie używa mocka — widget komunikuje się z własnym proxy. */
   (function () {
     if (!location.search.includes('mock=1')) return;
     window.__MO_STATE = 'fresh';
     var real = window.fetch.bind(window);
-    function payload(city, stale) {
-      var base = { katowice: 12, gliwice: 11, sosnowiec: 12, bytom: 10, zabrze: 11 };
-      var t = base[city] != null ? base[city] : 12;
+
+    function payloadCurrent(city, stale) {
+      var base = { katowice: 14, gliwice: 13, sosnowiec: 14, bytom: 12, zabrze: 13 };
+      var t = base[city] != null ? base[city] : 14;
       return {
-        city: city, label: city.charAt(0).toUpperCase() + city.slice(1),
-        temperature: t, weather_code: city === 'bytom' ? 71 : 61,
-        wind_speed: 14, temp_max: t + 3, temp_min: t - 5,
+        city: city,
+        label: city.charAt(0).toUpperCase() + city.slice(1),
+        temperature: t,
+        weather_code: city === 'bytom' ? 61 : 2,
+        symbol_code: city === 'bytom' ? 'rain' : 'partlycloudy_day',
+        wind_speed: 12,
+        temp_max: t + 3,
+        temp_min: t - 5,
         fetched_at: Math.floor(Date.now() / 1000) - (stale ? 5400 : 60),
         last_updated_timestamp: Math.floor(Date.now() / 1000) - (stale ? 5400 : 60),
-        is_stale: stale, cache: stale ? 'stale' : 'live',
-        attribution: 'Dane pogodowe: Open-Meteo.com (CC-BY 4.0)'
+        is_stale: stale,
+        cache: stale ? 'stale' : 'live',
+        source: 'MET Norway locationforecast 2.0',
+        attribution: 'Dane: MET Norway (CC BY 4.0)'
       };
     }
+
+    function payloadAir(city) {
+      if (city === 'katowice') {
+        return {
+          city: 'katowice',
+          label: 'Katowice',
+          measurement: {
+            available: true,
+            source: 'gios',
+            station_id: 17318,
+            station_name: 'Katowice, ul. Dudy-Gracza',
+            measured_at: '2026-10-07 07:00:00',
+            category: 'Umiarkowany',
+            category_index: 2,
+            pollutants: {
+              pm10: { value: 44.89, unit: 'µg/m³', index: 2, code: 'SlKatowDudy-PM10-1g' },
+              pm25: { value: 15.30, unit: 'µg/m³', index: 1, code: 'SlKatowDudy-PM25-1g' },
+              no2: { value: null, unit: 'µg/m³', index: null }
+            }
+          },
+          forecast: {
+            source: 'ios',
+            teryt: '2469',
+            label: 'dla miasta Katowice',
+            days: [
+              { date: '2026-10-07', pm10: 44.89 },
+              { date: '2026-10-08', pm10: 38.12 },
+              { date: '2026-10-09', pm10: 29.50 }
+            ]
+          },
+          attribution: ['GIOŚ / Państwowy Monitoring Środowiska', 'IOŚ-PIB'],
+          is_stale: false,
+          cache: 'fresh'
+        };
+      }
+      return {
+        city: city,
+        label: city.charAt(0).toUpperCase() + city.slice(1),
+        measurement: {
+          available: false,
+          source: 'ios',
+          note: 'Brak aktywnej stacji GIOŚ'
+        },
+        forecast: {
+          source: 'ios',
+          teryt: '2462',
+          label: 'dla miasta ' + (city.charAt(0).toUpperCase() + city.slice(1)),
+          days: [
+            { date: '2026-10-07', pm10: 32.40 },
+            { date: '2026-10-08', pm10: 35.80 },
+            { date: '2026-10-09', pm10: 27.10 }
+          ]
+        },
+        attribution: ['Prognoza jakości powietrza: IOŚ-PIB'],
+        is_stale: false,
+        cache: 'fresh'
+      };
+    }
+
+    function payloadDaily7(city) {
+      return {
+        city: city,
+        days: [
+          { date: '2026-10-07', weekday_label: 'Śr', temp_max: 16, temp_min: 8, precipitation_mm: 0.0, wind_speed_max: 12, symbol_code: 'clearsky_day', weather_code: 0, label_text: 'Słonecznie' },
+          { date: '2026-10-08', weekday_label: 'Cz', temp_max: 15, temp_min: 9, precipitation_mm: 1.2, wind_speed_max: 15, symbol_code: 'rain', weather_code: 61, label_text: 'Deszcz' },
+          { date: '2026-10-09', weekday_label: 'Pt', temp_max: 14, temp_min: 7, precipitation_mm: 0.2, wind_speed_max: 11, symbol_code: 'partlycloudy_day', weather_code: 2, label_text: 'Częściowe zachmurzenie' },
+          { date: '2026-10-10', weekday_label: 'So', temp_max: 17, temp_min: 6, precipitation_mm: 0.0, wind_speed_max: 9, symbol_code: 'clearsky_day', weather_code: 0, label_text: 'Słonecznie' },
+          { date: '2026-10-11', weekday_label: 'Nd', temp_max: 18, temp_min: 9, precipitation_mm: 0.0, wind_speed_max: 14, symbol_code: 'clearsky_day', weather_code: 0, label_text: 'Słonecznie' },
+          { date: '2026-10-12', weekday_label: 'Pn', temp_max: 16, temp_min: 8, precipitation_mm: 0.5, wind_speed_max: 13, symbol_code: 'cloudy', weather_code: 3, label_text: 'Zachmurzenie' },
+          { date: '2026-10-13', weekday_label: 'Wt', temp_max: 15, temp_min: 7, precipitation_mm: 2.1, wind_speed_max: 16, symbol_code: 'rain', weather_code: 61, label_text: 'Deszcz' }
+        ],
+        attribution: 'Dane: MET Norway (CC BY 4.0)',
+        is_stale: false,
+        cache: 'fresh'
+      };
+    }
+
+    function payloadNowcast(city) {
+      return {
+        city: city,
+        alert: {
+          active: true,
+          kind: 'starting',
+          eta_iso: '2026-10-07T15:00:00Z',
+          eta_local: '17:00',
+          minutes: 45,
+          text: 'Deszcz spodziewany około 17:00'
+        },
+        series: [{ t: '2026-10-07T15:00:00Z', mm: 0.6 }],
+        source: 'MET Norway',
+        disclaimer: 'Informacja o opadach, nie oficjalne ostrzeżenie meteorologiczne',
+        is_stale: false,
+        cache: 'fresh'
+      };
+    }
+
     window.fetch = function (url, opts) {
       if (String(url).indexOf('weather-api.php') === -1) return real(url, opts);
-      var m = String(url).match(/city=([a-z-]+)/);
-      var city = m ? m[1] : 'katowice';
+      var mCity = String(url).match(/city=([a-z-]+)/);
+      var mType = String(url).match(/type=([a-z0-9]+)/);
+      var city = mCity ? mCity[1] : 'katowice';
+      var type = mType ? mType[1] : 'current';
+
       if (window.__MO_STATE === 'down') {
         return Promise.resolve(new Response(JSON.stringify({ error: 'weather unavailable' }), { status: 503 }));
       }
+
+      var data;
+      if (type === 'air') data = payloadAir(city);
+      else if (type === 'daily7') data = payloadDaily7(city);
+      else if (type === 'nowcast') data = payloadNowcast(city);
+      else data = payloadCurrent(city, window.__MO_STATE === 'stale');
+
       return Promise.resolve(new Response(
-        JSON.stringify(payload(city, window.__MO_STATE === 'stale')),
+        JSON.stringify(data),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       ));
     };
@@ -57,32 +171,51 @@
 </head>
 <body>
 <header>
-  <h1>MO Weather Widget — demo</h1>
-  <p>Tryb mock: <code>?mock=1</code> · Tryb live: <code>php -S 127.0.0.1:8080</code> w katalogu z <code>weather-api.php</code>, potem ustaw <code>api-url="http://127.0.0.1:8080/weather-api.php"</code></p>
+  <h1>MO Weather Widget v2.0 — demo</h1>
+  <p>Tryb mock: <code>?mock=1</code> · Tryb live: uruchom backend PHP i odpytuj <code>../dist/weather-api.php</code></p>
 </header>
 <main>
   <section>
-    <h2>Symulacja backendu (tylko mock)</h2>
+    <h2>Symulacja stanów backendu (tylko w trybie ?mock=1)</h2>
     <div class="bar">
       <button id="b-fresh" aria-pressed="true">Świeże dane</button>
       <button id="b-stale" aria-pressed="false">API padło (stale cache)</button>
-      <button id="b-down" aria-pressed="false">Backend martwy (localStorage)</button>
+      <button id="b-down" aria-pressed="false">Backend martwy (localStorage fallback)</button>
     </div>
   </section>
 
   <section>
-    <h2>Mode: single (Katowice)</h2>
-    <mo-weather mode="single" city-id="katowice" api-url="../dist/weather-api.php"></mo-weather>
+    <h2>Wariant 1: Katowice — pełny zestaw modułów (pogoda, powietrze GIOŚ, 7 dni, alert deszczu)</h2>
+    <mo-weather mode="single" city-id="katowice"
+                modules="current,air,daily7,nowcast"
+                api-url="../dist/weather-api.php"></mo-weather>
   </section>
 
   <section>
-    <h2>Mode: aggregator (4 miasta, scroll-snap)</h2>
-    <mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,bytom" api-url="../dist/weather-api.php"></mo-weather>
+    <h2>Wariant 2: Bytom — miasto bez stacji GIOŚ (prognoza IOŚ-PIB)</h2>
+    <mo-weather mode="single" city-id="bytom"
+                modules="current,air,daily7"
+                api-url="../dist/weather-api.php"></mo-weather>
+  </section>
+
+  <section>
+    <h2>Wariant 3: Kompatybilność wsteczna (brak atrybutu modules = tylko current)</h2>
+    <mo-weather mode="single" city-id="gliwice" api-url="../dist/weather-api.php"></mo-weather>
+  </section>
+
+  <section>
+    <h2>Wariant 4: Agregator wielu miast z jakością powietrza</h2>
+    <mo-weather mode="aggregator"
+                cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom"
+                modules="current,air"
+                api-url="../dist/weather-api.php"></mo-weather>
   </section>
 
   <section class="dark">
-    <h2>Theming przez CSS variables</h2>
-    <mo-weather mode="single" city-id="bytom" api-url="../dist/weather-api.php"></mo-weather>
+    <h2>Wariant 5: Theming CSS variables (motyw ciemny)</h2>
+    <mo-weather mode="single" city-id="katowice"
+                modules="current,air,daily7,nowcast"
+                api-url="../dist/weather-api.php"></mo-weather>
   </section>
 </main>
 

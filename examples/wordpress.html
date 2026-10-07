@@ -17,9 +17,18 @@
     <h1>Wiadomości Regionalne — WordPress Gutenberg Embed</h1>
     <p>Poniżej osadzono komponent za pomocą standardowego bloku <strong>Własny HTML (Custom HTML)</strong>:</p>
 
-    <!-- KOD WKLEJANY DO BLOKU WORDPRESS -->
+    <!-- KOD WKLEJANY DO BLOKU WORDPRESS: Wersja podstawowa (kompatybilność wsteczna) -->
     <div class="wp-block-custom-html">
+      <h3>Bieżąca pogoda</h3>
       <mo-weather mode="single" city-id="katowice" api-url="../dist/weather-api.php"></mo-weather>
+    </div>
+
+    <!-- KOD WKLEJANY DO BLOKU WORDPRESS: Pełny zestaw modułów (v2.0) -->
+    <div class="wp-block-custom-html">
+      <h3>Pełny widget (pogoda, jakość powietrza, 7 dni, alert deszczu)</h3>
+      <mo-weather mode="single" city-id="katowice"
+                  modules="current,air,daily7,nowcast"
+                  api-url="../dist/weather-api.php"></mo-weather>
     </div>
 
     <p>Widget dzięki Shadow DOM dziedziczy podstawową typografię, zachowując nienaruszone style motywu WordPress.</p>

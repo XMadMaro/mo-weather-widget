@@ -1,313 +1,300 @@
-# MO Weather Widget — Specyfikacja Techniczna v1.0.1
+# MO Weather Widget — Specyfikacja Techniczna v2.0.0
 
-## 1. Architektura
+## 1. Architektura Systemu
 
-### Diagram przepływu danych
+### 1.1 Diagram przepływu danych
 ```
-┌─────────────┐
-│  Czytelnik  │
-│ (przegląd.) │
-└──────┬──────┘
-       │ GET /weather-api.php?city=katowice
-       ▼
-┌─────────────────────────────────────┐
-│         Backend Proxy (PHP)         │
-│  ┌───────────────────────────────┐  │
-│  │ 1. CORS check (allowlist)     │  │
-│  │ 2. Rate limit + GC (30/min)   │  │
-│  │ 3. Cache check (60 min TTL)   │  │
-│  │ 4. Circuit Breaker (backoff)  │  │
-│  └───────────────────────────────┘  │
-└──────┬──────────────────┬───────────┘
-       │                  │
-       ▼                  ▼
-┌──────────────┐    ┌──────────────┐
-│ Cache świeży │    │ Open-Meteo   │
-│ (< 60 min)   │    │ API (cURL/ctx)│
-└──────┬───────┘    └──────┬───────┘
-       │                   │
-       │                   ▼
-       │            ┌──────────────┐
-       │            │ Zapis atom.  │
-       │            │ do cache     │
-       │            └──────┬───────┘
-       ▼                   ▼
-┌─────────────────────────────────────┐
-│  JSON response (ETag + Server-Time) │
-└──────┬──────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────┐
-│   Frontend Web Component            │
-│  ┌───────────────────────────────┐  │
-│  │ 1. Fetch data                 │  │
-│  │ 2. Render Shadow DOM (CLS=0)  │  │
-│  │ 3. Fallback: localStorage     │  │
-│  └───────────────────────────────┘  │
-└──────┬──────────────────────────────┘
-       │
-       ▼
-┌─────────────┐
-│   Widget    │
-│  (karta)    │
-└─────────────┘
+┌────────────────────────────────────────────────────────┐
+│             Przeglądarka / Czytelnik                   │
+│   <mo-weather city-id="katowice"                       │
+│               modules="current,air,daily7,nowcast">    │
+└───────────────────────────┬────────────────────────────┘
+                            │ GET /weather-api.php?city=katowice&type={module}
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                  Backend Proxy (PHP 8.1+)              │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ 1. Walidacja CORS (allowlist z granicą kropki)   │  │
+│  │ 2. Walidacja miasta z src/cities.php (14 miast)  │  │
+│  │ 3. Cache check (per type: current/air/daily7/...)│  │
+│  │ 4. Single-flight flock (.lock) na miss           │  │
+│  │ 5. Rate limit (30 req/min) — TYLKO cache misses! │  │
+│  └──────────────────────────────────────────────────┘  │
+└──────────────┬──────────────────┬──────────────────┬───┘
+               │                  │                  │
+    (current, daily7, nowcast)  (air: stacje 6)   (air: brak stacji 8)
+               ▼                  ▼                  ▼
+      ┌─────────────────┐ ┌───────────────┐ ┌────────────────┐
+      │   MET Norway    │ │  GIOŚ PJP API │ │   IOŚ-PIB API  │
+      │ locationforecast│ │ data/getData  │ │ PM10 forecast  │
+      │  (CC BY 4.0)    │ │ aqindex/Index │ │ (3 dni TERYT)  │
+      └────────┬────────┘ └───────┬───────┘ └────────┬───────┘
+               │                  │                  │
+               └──────────────────┼──────────────────┘
+                                  ▼
+                    ┌───────────────────────────┐
+                    │ Atomowy zapis cache JSON  │
+                    │   ../var/cache/{type}_*   │
+                    └─────────────┬─────────────┘
+                                  │
+                                  ▼
+      ┌────────────────────────────────────────────────────────┐
+      │ Odpowiedź JSON z ETag (bez server_time w body)         │
+      │ Nagłówki: X-Content-Type-Options: nosniff, Server-Time │
+      └───────────────────────────┬────────────────────────────┘
+                                  │
+                                  ▼
+      ┌────────────────────────────────────────────────────────┐
+      │             Frontend Web Component (Shadow DOM)        │
+      │ - Izolacja stylów CSS, motywowanie przez zmienne CSS   │
+      │ - Zero innerHTML dla danych dynamicznych (textContent) │
+      │ - Zero Layout Shift (CLS = 0, stałe wysokości)         │
+      │ - Trzywarstwowy fallback (API → proxy cache → storage) │
+      └────────────────────────────────────────────────────────┘
 ```
-
-### Komponenty
-
-#### Backend (`weather-api.php`)
-- **Rola:** Proxy + cache + rate limiting + circuit breaker
-- **Język:** PHP 8.1+ (strict_types)
-- **Zależności:** Brak (funkcje wbudowane: curl z fallbackiem na stream context, json, flock)
-- **Cache:** Plikowy (`../var/cache/city_{id}.json`), poza webrootem
-- **Circuit Breaker:** Marker `backoff_{city}.json` (60s negative cache) zapobiega thundering herd przy awariach upstream
-- **Rate limiting:** File-based token bucket, 30 req/60s per hash IP z probabilistycznym GC (1% szans na cleanup plików starszych niż 24h)
-- **Nagłówki bezpieczeństwa:** `X-Content-Type-Options: nosniff`
-
-#### Frontend (`weather-widget.js`)
-- **Rola:** Web Component `<mo-weather>`
-- **Język:** Vanilla JS (ES6+, zero transpilacji)
-- **Zależności:** Brak (zero npm packages)
-- **Izolacja:** Shadow DOM (style nie kolidują z portalem)
-- **Layout Shift:** Stała rezerwacja wysokości 170px (`min-height: 170px`) na kontenerze i skeletonie (CLS = 0)
-- **Dostępność (a11y):** Kontrast stopki zgodny z WCAG AA (≥ 4.5:1), karuzela agregatora z `role="region"` i `aria-label`
-- **Fallback:** 3 warstwy (API → cache backend → localStorage)
 
 ---
 
-## 2. Kontrakt API
+## 2. Źródła Danych i Licencjonowanie
 
-### Request
+Wszystkie używane API są w 100% legalne komercyjnie i bezpłatne (0 zł kosztów subskrypcji):
+
+| Moduł | Upstream / Dostawca | Koszt | Licencja | Limity / Wymagania |
+|---|---|---|---|---|
+| `current`, `daily7`, `nowcast` | **MET Norway** `locationforecast/2.0/compact` | 0 zł | Creative Commons Attribution 4.0 (CC BY 4.0) | 20 req/s, unikalny User-Agent kontaktowy, współrzędne zaokrąglone do max 4 miejsc po przecinku. |
+| `air` (pomiary) | **GIOŚ PJP API** `api.gios.gov.pl/pjp-api/v1/rest/` | 0 zł | Otwarte dane publiczne RP | 1500 req/min dla `data/getData` oraz `aqindex/getIndex`. Odpytywanie `station/sensors` zabronione w runtime (konfiguracja statyczna w `src/cities.php`). |
+| `air` (prognoza) | **IOŚ-PIB** `api.prognozy.ios.edu.pl/v1/PM10/{TERYT}/` | 0 zł | Otwarte dane publiczne RP | Prognoza 3-dniowa stężenia PM10 dla jednostek TERYT (gminy/powiaty). |
+
+---
+
+## 3. Lista 14 Miast Aglomeracji (Źródło: `src/cities.php`)
+
+| Slug | Nazwa | TERYT | Poziom | Źródło powietrza | Stacja GIOŚ | PM10 Sensor | PM2,5 Sensor |
+|---|---|---|---|---|---|---|---|
+| `katowice` | Katowice | 2469 | Miasto | GIOŚ pomiar | 17318 (Dudy-Gracza) | 28758 | 28759 |
+| `gliwice` | Gliwice | 2466 | Miasto | GIOŚ pomiar | 809 (Mewy) | 5312 | brak (5314 manualny pominięty) |
+| `sosnowiec` | Sosnowiec | 2475 | Miasto | GIOŚ pomiar | 837 (Kombajnistów) | 5480 | brak |
+| `zabrze` | Zabrze | 2478 | Miasto | GIOŚ pomiar | 17880 (Curie-Skłodowskiej)| 29671 | brak (29679 manualny pominięty) |
+| `tychy` | Tychy | 2477 | Miasto | GIOŚ pomiar | 841 (Tołstoja) | 5505 | brak |
+| `dabrowa-gornicza`| Dąbrowa Górnicza| 2465 | Miasto | GIOŚ pomiar | 805 (1000-lecia) | 5286 | brak (5287 manualny pominięty) |
+| `bytom` | Bytom | 2462 | Miasto | IOŚ prognoza | — | — | — |
+| `chorzow` | Chorzów | 2463 | Miasto | IOŚ prognoza | — | — | — |
+| `swietochlowice` | Świętochłowice| 2476 | Miasto | IOŚ prognoza | — | — | — |
+| `ruda-slaska` | Ruda Śląska | 2472 | Miasto | IOŚ prognoza | — | — | — |
+| `piekary-slaskie`| Piekary Śląskie| 2471 | Miasto | IOŚ prognoza | — | — | — |
+| `tarnowskie-gory`| Tarnowskie Góry| 2413 | Powiat | IOŚ prognoza | — (stacja 839 nie raportuje) | — | — |
+| `knurow` | Knurów | 2405 | Powiat | IOŚ prognoza | — (stacja 818 nie raportuje) | — | — |
+| `bedzin` | Będzin | 2401 | Powiat | IOŚ prognoza | — | — | — |
+
+---
+
+## 4. Kontrakt API Backend Proxy (`weather-api.php`)
+
+### 4.1 Zapytanie HTTP
 ```http
-GET /weather-api.php?city={city_id} HTTP/1.1
-Host: api.example.com
-Origin: https://portal.example.com
+GET /weather-api.php?city={slug}&type={type} HTTP/1.1
+Host: api.twojadomena.pl
+Origin: https://slazag.pl
 ```
 
-**Parametry:**
-| Nazwa  | Typ    | Wymagany | Opis                                      |
-|--------|--------|----------|-------------------------------------------|
-| `city` | string | TAK      | ID miasta z allowlisty: `katowice`, `gliwice`, `sosnowiec`, `bytom`, `zabrze` |
+Parametry:
+- `city` (string, opcjonalny tylko dla `type=health`): slug miasta z allowlisty 14 miast.
+- `type` (string, opcjonalny): jeden z `current` (domyślny), `air`, `daily7`, `nowcast`, `health`.
 
-### Response (200 OK)
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
-X-Content-Type-Options: nosniff
-ETag: "9f83c1b..."
-Server-Time: 1728003600
-Access-Control-Allow-Origin: https://portal.example.com
-```
+---
+
+### 4.2 Odpowiedź `type=current` (domyślna, kompatybilna wstecz)
 ```json
 {
   "city": "katowice",
   "label": "Katowice",
-  "temperature": 12,
-  "weather_code": 61,
-  "wind_speed": 14,
-  "temp_max": 15,
+  "temperature": 14,
+  "weather_code": 2,
+  "symbol_code": "partlycloudy_day",
+  "wind_speed": 11,
+  "temp_max": 16,
   "temp_min": 7,
-  "fetched_at": 1728000000,
-  "last_updated_timestamp": 1728000000,
-  "source": "open-meteo icon_seamless",
-  "attribution": "Dane pogodowe: Open-Meteo.com (CC-BY 4.0)",
+  "fetched_at": 1728291600,
+  "last_updated_timestamp": 1728291600,
+  "source": "MET Norway locationforecast 2.0",
+  "attribution": "Dane: MET Norway (CC BY 4.0)",
   "is_stale": false,
-  "cache": "live"
+  "cache": "fresh"
 }
 ```
 
-**Pola:**
-| Pole                     | Typ    | Opis                                                                 |
-|--------------------------|--------|----------------------------------------------------------------------|
-| `city`                   | string | ID miasta (slug)                                                     |
-| `label`                  | string | Nazwa miasta (do wyświetlenia)                                       |
-| `temperature`            | int    | Aktualna temperatura (°C, zaokrąglona)                               |
-| `weather_code`           | int    | Kod pogody WMO (0-99)                                                |
-| `wind_speed`             | int    | Prędkość wiatru (km/h, zaokrąglona)                                  |
-| `temp_max`               | int    | Maksymalna temperatura dnia (°C)                                     |
-| `temp_min`               | int    | Minimalna temperatura dnia (°C)                                      |
-| `fetched_at`             | int    | Timestamp (Unix) pobrania danych z Open-Meteo                        |
-| `last_updated_timestamp` | int    | Timestamp ostatniej aktualizacji (alias `fetched_at`)                |
-| `source`                 | string | Źródło danych (np. "open-meteo icon_seamless")                       |
-| `attribution`            | string | Atrybucja licencyjna (wymóg CC-BY 4.0)                               |
-| `is_stale`               | bool   | `true` jeśli dane z cache >60 min (API padło), `false` jeśli świeże  |
-| `cache`                  | string | Stan cache: `fresh` (<60 min), `live` (odświeżony), `stale` (awaria) |
+---
 
-> **Uwaga dot. ETag i `server_time`**: Dynamiczny `server_time` serwowany jest w nagłówku HTTP `Server-Time`, a nie w ciele JSON. Dzięki temu treść JSON jest w 100% deterministyczna, a nagłówek `ETag` pozwala na poprawne zwracanie odpowiedzi `304 Not Modified`.
-
-### Response (400 Bad Request)
+### 4.3 Odpowiedź `type=air`
+Dla miasta ze stacją GIOŚ (np. Katowice):
 ```json
 {
-  "error": "unknown city",
-  "available": ["katowice", "gliwice", "sosnowiec", "bytom", "zabrze"]
+  "city": "katowice",
+  "label": "Katowice",
+  "measurement": {
+    "available": true,
+    "source": "gios",
+    "station_id": 17318,
+    "station_name": "Katowice, ul. Kossutha",
+    "measured_at": "2026-10-07 07:00:00",
+    "category": "Dobry",
+    "category_index": 1,
+    "pollutants": {
+      "pm10": {
+        "value": 24.3,
+        "unit": "µg/m³",
+        "index": 1,
+        "code": "SlKatowKossu-PM10-1g"
+      },
+      "pm25": {
+        "value": 14.1,
+        "unit": "µg/m³",
+        "index": 1,
+        "code": "SlKatowKossu-PM2.5-1g"
+      },
+      "no2": {
+        "value": null,
+        "unit": "µg/m³",
+        "index": null
+      }
+    }
+  },
+  "forecast": {
+    "source": "ios",
+    "teryt": "2469",
+    "label": "dla miasta Katowice",
+    "days": [
+      {"date": "2026-10-07", "pm10": 25.1},
+      {"date": "2026-10-08", "pm10": 28.4},
+      {"date": "2026-10-09", "pm10": 21.0}
+    ]
+  },
+  "attribution": ["GIOŚ / Państwowy Monitoring Środowiska", "IOŚ-PIB"],
+  "is_stale": false,
+  "cache": "fresh"
 }
 ```
 
-### Response (403 Forbidden)
+Dla miasta bez stacji GIOŚ (np. Bytom):
 ```json
 {
-  "error": "origin not allowed"
+  "city": "bytom",
+  "label": "Bytom",
+  "measurement": {
+    "available": false,
+    "source": "ios",
+    "note": "Brak aktywnej stacji GIOŚ — prezentowana prognoza IOŚ-PIB"
+  },
+  "forecast": {
+    "source": "ios",
+    "teryt": "2462",
+    "label": "dla miasta Bytom",
+    "days": [
+      {"date": "2026-10-07", "pm10": 28.5},
+      {"date": "2026-10-08", "pm10": 31.2},
+      {"date": "2026-10-09", "pm10": 24.0}
+    ]
+  },
+  "attribution": ["Prognoza jakości powietrza: IOŚ-PIB"],
+  "is_stale": false,
+  "cache": "fresh"
 }
 ```
 
-### Response (429 Too Many Requests)
+---
+
+### 4.4 Odpowiedź `type=daily7`
 ```json
 {
-  "error": "rate limited",
-  "retry_after_seconds": 45
+  "city": "katowice",
+  "days": [
+    {
+      "date": "2026-10-07",
+      "weekday_label": "Śr",
+      "temp_max": 16,
+      "temp_min": 8,
+      "precipitation_mm": 0.2,
+      "wind_speed_max": 14,
+      "symbol_code": "partlycloudy_day",
+      "weather_code": 2,
+      "label_text": "Częściowe zachmurzenie"
+    },
+    {
+      "date": "2026-10-08",
+      "weekday_label": "Cz",
+      "temp_max": 15,
+      "temp_min": 7,
+      "precipitation_mm": 1.4,
+      "wind_speed_max": 18,
+      "symbol_code": "rain",
+      "weather_code": 61,
+      "label_text": "Deszcz"
+    }
+  ],
+  "attribution": "Dane: MET Norway (CC BY 4.0)",
+  "is_stale": false,
+  "cache": "fresh"
 }
 ```
-**Nagłówek:** `Retry-After: 45`
 
-### Response (503 Service Unavailable)
+---
+
+### 4.5 Odpowiedź `type=nowcast` (Alert opadowy)
 ```json
 {
-  "error": "weather unavailable",
-  "retry_after_seconds": 300
+  "city": "katowice",
+  "alert": {
+    "active": true,
+    "kind": "starting",
+    "eta_iso": "2026-10-07T14:00:00Z",
+    "eta_local": "16:00",
+    "minutes": 45,
+    "text": "Deszcz spodziewany około 16:00"
+  },
+  "series": [
+    {"t": "2026-10-07T14:00:00Z", "mm": 0.4}
+  ],
+  "source": "MET Norway",
+  "disclaimer": "Informacja o opadach, nie oficjalne ostrzeżenie meteorologiczne",
+  "is_stale": false,
+  "cache": "fresh"
 }
 ```
-**Nagłówek:** `Retry-After: 300`
 
 ---
 
-## 3. Model bezpieczeństwa
-
-### CORS (Cross-Origin Resource Sharing)
-- **Allowlist:** Tylko domeny z `MO_ALLOWED_ORIGINS` (dopasowanie po granicy kropki)
-- **Środowisko developerskie:** Dopuszczenie `localhost` i `127.0.0.1` przy `APP_ENV=development`
-- **Nagłówki:** `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods: GET, HEAD, OPTIONS`
-- **Preflight:** `OPTIONS` zwraca `204 No Content`
-
-### Rate limiting
-- **Limit:** 30 requestów na 60 sekund per hash IP
-- **Implementacja:** File-based token bucket (`../var/cache/rl_{hash}.json`)
-- **Garbage Collection (GC):** Probabilistyczne czyszczenie (1% requestów) usuwa pliki `rl_*.json` starsze niż 24h, zapobiegając wyczerpaniu inodów na dysku
-- **Fail-open:** Błąd FS nie blokuje requestu (log warning)
-
-### Circuit Breaker & Thundering Herd
-- **Problem:** Awaria API Open-Meteo blokuje procesy PHP na czas timeoutu (8s). Przy setkach jednoczesnych żądań powoduje to wyczerpanie workerów PHP-FPM.
-- **Rozwiązanie:** Marker `../var/cache/backoff_{city}.json` z 60-sekundowym TTL (negative cache). Przy awarii kolejne requesty natychmiast serwują stary cache bez odpytywania zewnętrznego API.
-
-### Sanitization (Frontend)
-- **Zasada:** Dane z API wstrzykiwane **wyłącznie przez `textContent`** (zero `innerHTML` z payloadu)
-- **Ikony SVG:** Statyczne, hardcoded (nie pochodzą z API)
-
-### Cache security
-- **Lokalizacja:** `../var/cache` (poza webrootem)
-- **Ochrona:** `.htaccess: Require all denied` (Apache) / `deny all` (nginx)
-- **Zapis atomowy:** `tmp` + `rename()` (brak uszkodzonych odczytów)
-- **Nagłówek:** `X-Content-Type-Options: nosniff`
-
----
-
-## 4. Wymagania techniczne
-
-### Backend
-- **PHP:** 8.1+ (strict_types, str_ends_with)
-- **Rozszerzenia:** `json` (wymagane), `curl` (zalecane, z automatycznym fallbackiem na `file_get_contents` ze stream context i timeoutem 8s przy braku `ext-curl`)
-- **Uprawnienia FS:** write do `../var/cache` (lub fallback `.cache`)
-- **Web server:** Apache (z .htaccess) / nginx (z location block)
-
-### Frontend
-- **Przeglądarka:** Chrome 67+, Firefox 63+, Safari 11+, Edge 79+ (Custom Elements v1)
-- **JavaScript:** ES6+ (brak transpilacji, działa natywnie)
-- **localStorage:** wymagany dla fallbacku (graceful degradation bez niego)
-
-### Sieć
-- **CSP (Content Security Policy):**
-  ```
-  connect-src https://api.TWOJA-DOMENA;
-  script-src https://cdn.TWOJA-DOMENA;
-  ```
-- **Brak wymogu:** `img-src` (ikony to inline SVG), `unsafe-inline`
-
----
-
-## 5. Wdrożenie
-
-### Krok 1: Backend
-1. Skopiuj `dist/weather-api.php` do webroota (np. `public_html/weather-api.php`)
-2. Utwórz katalog cache: `mkdir -p ../var/cache && chmod 775 ../var/cache`
-3. Uzupełnij `MO_ALLOWED_ORIGINS` o domeny produkcyjne
-4. Test: `curl -i "https://api.TWOJA-DOMENA/weather-api.php?city=katowice"`
-
-### Krok 2: Frontend
-1. Hostuj `dist/weather-widget.min.js` na CDN (własny / jsDelivr / unpkg)
-2. Wklej w szablonie portalu:
-   ```html
-   <script src="https://cdn.TWOJA-DOMENA/weather-widget.min.js?v=1.0.1" defer></script>
-   <mo-weather mode="single" city-id="katowice"
-               api-url="https://api.TWOJA-DOMENA/weather-api.php"></mo-weather>
-   ```
-3. Theming przez CSS variables (opcjonalne):
-   ```css
-   mo-weather {
-     --mo-card: #ffffff;
-     --mo-text: #1a1a1a;
-     --mo-accent: #0b63ce;
-   }
-   ```
-
----
-
-## 6. Testy
-
-### Backend (curl)
-```bash
-# Świeże dane
-curl -i "https://api.example.com/weather-api.php?city=katowice"
-# Oczekiwane: 200 OK, is_stale: false
-
-# Nieznane miasto
-curl -i "https://api.example.com/weather-api.php?city=warszawa"
-# Oczekiwane: 400 Bad Request
-
-# CORS (dozwolona domena)
-curl -i -H "Origin: https://news.slazag.pl" "https://api.example.com/weather-api.php?city=katowice"
-# Oczekiwane: 200 OK, nagłówek Access-Control-Allow-Origin
-
-# CORS (niedozwolona domena)
-curl -i -H "Origin: https://zlyslazag.pl" "https://api.example.com/weather-api.php?city=katowice"
-# Oczekiwane: 403 Forbidden
-
-# Rate limit (seria 35 requestów)
-for i in {1..35}; do curl -s "https://api.example.com/weather-api.php?city=katowice"; done
-# Oczekiwane: pierwsze 30 → 200, kolejne → 429 Too Many Requests
+### 4.6 Odpowiedź `type=health`
+```json
+{
+  "ok": true,
+  "version": "2.0.0",
+  "modules": {
+    "current": "fresh",
+    "air": "fresh",
+    "daily7": "fresh",
+    "nowcast": "fresh"
+  },
+  "cities_count": 14
+}
 ```
 
-### Frontend (manualne)
-1. Otwórz `examples/demo.html?mock=1` w przeglądarce
-2. Przełącz stany: Świeże → Stale (badge) → Down (localStorage fallback)
-3. Sprawdź responsywność (mobile-first, scroll-snap w aggregatorze)
-4. Sprawdź theming (`.dark` class zmienia kolory przez CSS vars)
-5. DevTools → Network: zero requestów poza `api-url`
-6. DevTools → Console: zero błędów
-
-### Lighthouse
-- Uruchom Lighthouse mobile na stronie z widgetem
-- **Kryterium:** CLS nie wzrasta po załadowaniu (skeleton zachowuje miejsce)
-
 ---
 
-## 7. Maintenance
+## 5. Standardy Bezpieczeństwa i Ochrony Wydajności
 
-### Aktualizacje
-- **Semver:** Zmiany API tylko additive (nowe pola, brak breaking changes)
-- **Wersjonowanie plików:** Query string `?v=1.0.1` (cache busting)
-- **Changelog:** Plik `CHANGELOG.md` w repo
-
-### Monitoring
-- **Backend:** Log PHP (błędy API, rate limit hits)
-- **Frontend:** Brak telemetrii (privacy-first), błędy widoczne w konsoli DevTools
-
-### Wsparcie
-- **Issues:** GitHub Issues w repo
-- **Security:** Responsible disclosure przez GitHub Security Advisories
-
----
-
-## 8. Licencja
-
-- **Kod widgetu:** MIT License (swobodne użycie komercyjne)
-- **Dane pogodowe:** Open-Meteo CC-BY 4.0 (wymagana atrybucja w stopce widgetu)
-- **Ikony SVG:** Public domain (inline, brak zewnętrznych zależności)
+1. **Izolacja DOM i XSS Protection:**
+   - Wszystkie wartości pochodzące z API są przypisywane wyłącznie przez `element.textContent = ...`.
+   - Wstrzykiwanie przez `innerHTML` dozwolone jest wyłącznie dla statycznych, hardcodowanych szablonów SVG.
+2. **Deterministic ETag:**
+   - Timestamp serwera wysyłany jest w nagłówku `Server-Time`, dzięki czemu ciało JSON jest deterministyczne. Odpowiedzi obsługują `If-None-Match` i kod `304 Not Modified`.
+3. **Single-flight i blokowanie flock:**
+   - Współbieżne żądania nie odpytują równolegle zewnętrznych API. Pierwszy wątek blokuje plik `.lock`, pozostałe czekają i natychmiast czytają świeżo wygenerowany cache.
+4. **Rate Limiting chroniący przed atakami:**
+   - Licznik 30 req/minutę nalicza wyłącznie **cache-missy**. Zapytania trafiające w świeży cache (`cache: fresh`) nie obciążają limitu użytkownika.
+   - Probabilistyczne Garbage Collection (1% szans) oczyszcza pliki śledzące IP starsze niż 24h.
+5. **Circuit Breaker:**
+   - Błąd zewnętrznego upstreamu generuje 60-sekundowy plik markera `backoff_{city}_{type}.json`. W czasie awarii proxy natychmiast serwuje stary cache (`is_stale: true`) bez czekania na timeout.
+6. **Polityka Dostępności (WCAG 2.1 AA):**
+   - Kontrast tekstów i atrybucji wynosi co najmniej 4.5:1.
+   - Alerty nowcast mają semantykę `role="status"` i `aria-live="polite"`.
+   - Zastosowanie `@media (prefers-reduced-motion: reduce)` dla wszystkich animacji.
