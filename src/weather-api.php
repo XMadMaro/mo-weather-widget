@@ -300,13 +300,11 @@ function mo_fetch_ios_forecast(string $teryt): ?array {
  */
 function mo_air_advice(int $catIndex): string {
     return match ($catIndex) {
-        1 => 'Jakość powietrza bardzo dobra, brak ograniczeń.',
-        2 => 'Jakość powietrza zadowalająca, dobre warunki na zewnątrz.',
-        3 => 'Jakość powietrza umiarkowana, osoby wrażliwe powinny uważać.',
-        4 => 'Umiarkowane zanieczyszczenie, ogranicz dłuższy wysiłek na zewnątrz.',
-        5 => 'Zła jakość powietrza, unikaj przebywania na zewnątrz.',
-        6 => 'Bardzo zła jakość powietrza, zalecane pozostanie w pomieszczeniu.',
-        default => 'Brak aktualnych zaleceń.',
+        1, 2 => 'Jakość powietrza dobra. Można przebywać na zewnątrz.',
+        3, 4 => 'Osoby wrażliwe powinny ograniczyć wysiłek na zewnątrz.',
+        5    => 'Osoby z chorobami serca i płuc, dzieci i seniorzy powinni zostać w domu.',
+        6    => 'Unikaj przebywania na zewnątrz. Zamknij okna.',
+        default => 'Osoby wrażliwe powinny ograniczyć wysiłek na zewnątrz.',
     };
 }
 
@@ -544,6 +542,7 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
         'category'       => null,
         'category_index' => null,
         'advice'         => null,
+        'label'          => null,
         'pollutants'     => [
             'pm10' => ['value' => null, 'unit' => 'µg/m³', 'index' => null, 'code' => null],
             'pm25' => ['value' => null, 'unit' => 'µg/m³', 'index' => null, 'code' => null],
@@ -578,6 +577,12 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
                     }
                 }
                 if (!$pm10Code && isset($pData['key'])) $pm10Code = $pData['key'];
+
+                // Pułapka 14: Weryfikacja kodu stanowiska — upewnij się, że kod odpowiada PM10
+                if ($pm10Code !== null && stripos($pm10Code, 'PM10') === false) {
+                    error_log("[WARN] Mismatch kodu stanowiska dla PM10 na stacji $stationId: $pm10Code");
+                    $pm10Val = null;
+                }
             }
         }
 
@@ -601,6 +606,12 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
                     }
                 }
                 if (!$pm25Code && isset($pData['key'])) $pm25Code = $pData['key'];
+
+                // Pułapka 14: Weryfikacja kodu stanowiska — upewnij się, że kod odpowiada PM2.5 / PM25
+                if ($pm25Code !== null && (stripos($pm25Code, 'PM25') === false && stripos($pm25Code, 'PM2.5') === false && stripos($pm25Code, 'PM2_5') === false)) {
+                    error_log("[WARN] Mismatch kodu stanowiska dla PM2.5 na stacji $stationId: $pm25Code");
+                    $pm25Val = null;
+                }
             }
         }
 
@@ -613,6 +624,12 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
 
         if ($pm10Val !== null || $pm25Val !== null || $catName !== null) {
             $giosSuccess = true;
+            $measuredHour = null;
+            if ($measuredAt && preg_match('/(\d{2}:\d{2})/', $measuredAt, $mh)) {
+                $measuredHour = $mh[1];
+            }
+            $stationLabel = $measuredHour ? "Pomiar ze stacji GIOŚ, $measuredHour" : "Pomiar ze stacji GIOŚ";
+
             $measurement = [
                 'available'      => true,
                 'source'         => 'gios',
@@ -622,6 +639,7 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
                 'category'       => $catName ?: 'Brak indeksu',
                 'category_index' => $catIdx,
                 'advice'         => $catIdx ? mo_air_advice($catIdx) : 'Pomiar ze stacji GIOŚ.',
+                'label'          => $stationLabel,
                 'pollutants'     => [
                     'pm10' => [
                         'value' => $pm10Val,
@@ -652,14 +670,28 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
             $measurement = $cached['measurement'];
             $measurement['is_stale'] = true;
             $measurement['note'] = 'Dane ze stacji GIOŚ (ostatni znany odczyt)';
+            $measurement['label'] = 'Pomiar ze stacji GIOŚ (ostatni odczyt)';
         } else {
             // Krok 2: stacja niedostępna -> oznacz brak pomiaru i przejdź do prognozy IOŚ-PIB
+            $degradationMsg = 'Stacja pomiarowa GIOŚ chwilowo niedostępna — prezentowana prognoza jakości powietrza IOŚ-PIB';
             $measurement['available'] = false;
             $measurement['source'] = 'gios';
             $measurement['station_id'] = $stationId;
             $measurement['station_name'] = $cityConfig['station_name'] ?? 'Stacja GIOŚ';
-            $measurement['note'] = 'Stacja pomiarowa GIOŚ chwilowo niedostępna — prezentowana prognoza IOŚ-PIB';
+            $measurement['note'] = $degradationMsg;
+            $measurement['label'] = $degradationMsg;
         }
+    }
+
+    // Jeśli miasto nie ma stacji GIOŚ
+    if (!$hasGios) {
+        $noStationMsg = 'Brak aktywnej stacji GIOŚ — prezentowana prognoza jakości powietrza IOŚ-PIB';
+        $measurement['available'] = false;
+        $measurement['source'] = null;
+        $measurement['station_id'] = null;
+        $measurement['station_name'] = null;
+        $measurement['note'] = $noStationMsg;
+        $measurement['label'] = 'Prognoza jakości powietrza IOŚ-PIB';
     }
 
     // Prognoza IOŚ-PIB
@@ -686,23 +718,52 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
         ? 'Prognoza IOŚ-PIB dla ' . $terytName
         : 'Prognoza IOŚ-PIB dla miasta ' . $terytName;
 
+    // Jeśli pomiar jest niedostępny, ale mamy prognozę IOŚ-PIB, wyznacz kategorię i poradę z prognozy
+    $forecastCat = null;
+    $forecastCatIdx = null;
+    $forecastAdvice = null;
+    if (!$measurement['available'] && !empty($forecastDays)) {
+        $p10Est = (float) $forecastDays[0]['pm10'];
+        if ($p10Est <= 20) {
+            $forecastCat = 'Bardzo dobry'; $forecastCatIdx = 1;
+        } elseif ($p10Est <= 50) {
+            $forecastCat = 'Dobry'; $forecastCatIdx = 2;
+        } elseif ($p10Est <= 80) {
+            $forecastCat = 'Umiarkowany'; $forecastCatIdx = 3;
+        } elseif ($p10Est <= 110) {
+            $forecastCat = 'Dostateczny'; $forecastCatIdx = 4;
+        } elseif ($p10Est <= 150) {
+            $forecastCat = 'Zły'; $forecastCatIdx = 5;
+        } else {
+            $forecastCat = 'Bardzo zły'; $forecastCatIdx = 6;
+        }
+        $forecastAdvice = mo_air_advice($forecastCatIdx);
+    }
+
     return [
         'city'        => $cityConfig['slug'],
         'label'       => $cityConfig['label'],
         'measurement' => $measurement,
         'forecast'    => [
-            'source'      => 'ios',
-            'teryt'       => $teryt,
-            'teryt_level' => $terytLevel,
-            'teryt_name'  => $terytName,
-            'label'       => $forecastLabel,
-            'days'        => $forecastDays,
+            'source'         => 'ios',
+            'teryt'          => $teryt,
+            'teryt_level'    => $terytLevel,
+            'teryt_name'     => $terytName,
+            'label'          => $forecastLabel,
+            'category'       => $forecastCat,
+            'category_index' => $forecastCatIdx,
+            'advice'         => $forecastAdvice,
+            'days'           => $forecastDays,
         ],
         'attribution' => ['GIOŚ / Państwowy Monitoring Środowiska', 'IOŚ-PIB'],
     ];
 }
 
 /* ---------- FLOW GLOWNY ---------- */
+
+if (defined('MO_UNIT_TEST')) {
+    return;
+}
 
 mo_cors();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

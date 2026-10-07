@@ -170,7 +170,7 @@ ob_start();
 require "src/weather-api.php";
 '
 
-echo "--> [8/11] Testing type=air endpoint logic (GIOŚ & IOŚ-PIB)..."
+echo "--> [8/11] Testing type=air endpoint logic (GIOŚ & IOŚ-PIB - DoD E1)..."
 run_php -r '
 $_SERVER["REQUEST_METHOD"] = "GET";
 $_GET["city"] = "katowice";
@@ -180,10 +180,68 @@ register_shutdown_function(function() {
     $data = json_decode($out, true);
     if (!isset($data["measurement"], $data["forecast"])) { echo "FAIL: air payload missing measurement/forecast\n"; exit(1); }
     if (!is_array($data["attribution"]) || count($data["attribution"]) < 2) { echo "FAIL: attribution missing GIOŚ/IOŚ\n"; exit(1); }
-    echo "✓ Air quality endpoint passed.\n";
+
+    // E1 DoD #1: Katowice
+    $meas = $data["measurement"];
+    if (!($meas["available"] ?? false)) { echo "FAIL: Katowice measurement must be available\n"; exit(1); }
+    if (($meas["station_id"] ?? 0) !== 17318) { echo "FAIL: Katowice station_id must be 17318\n"; exit(1); }
+    if (!isset($meas["pollutants"]["pm10"]["value"])) { echo "FAIL: Katowice pm10 must exist\n"; exit(1); }
+    if (!isset($meas["pollutants"]["pm25"]["value"])) { echo "FAIL: Katowice pm25 must exist (only city with PM2.5)\n"; exit(1); }
+    if (empty($meas["label"]) || !str_contains($meas["label"], "Pomiar ze stacji GIOŚ")) { echo "FAIL: Katowice label must state Pomiar ze stacji GIOŚ\n"; exit(1); }
+    if (empty($meas["advice"])) { echo "FAIL: Katowice advice must be non-empty\n"; exit(1); }
+    echo "  ✓ [E1 DoD #1] Katowice (station 17318, PM10, PM2.5, advice) passed.\n";
 });
 ob_start();
 require "src/weather-api.php";
+'
+
+# E1 DoD #3: Gliwice (PM10 only, manual PM2.5 excluded)
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["city"] = "gliwice";
+$_GET["type"] = "air";
+ob_start();
+require "src/weather-api.php";
+$gOut = ob_get_clean();
+$gData = json_decode($gOut, true);
+if (!($gData["measurement"]["available"] ?? false)) { echo "FAIL: Gliwice measurement should be available\n"; exit(1); }
+if (($gData["measurement"]["station_id"] ?? 0) !== 809) { echo "FAIL: Gliwice station_id must be 809\n"; exit(1); }
+if (!isset($gData["measurement"]["pollutants"]["pm10"]["value"])) { echo "FAIL: Gliwice must have PM10\n"; exit(1); }
+if ($gData["measurement"]["pollutants"]["pm25"]["value"] !== null) { echo "FAIL: Gliwice must NOT have PM2.5 (manual sensor excluded)\n"; exit(1); }
+echo "  ✓ [E1 DoD #3] Gliwice (station 809, PM10 present, PM2.5 null) passed.\n";
+'
+
+# E1 DoD #2: Bytom (forecast only)
+run_php -r '
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_GET["city"] = "bytom";
+$_GET["type"] = "air";
+ob_start();
+require "src/weather-api.php";
+$bOut = ob_get_clean();
+$bData = json_decode($bOut, true);
+if (($bData["measurement"]["available"] ?? true) !== false) { echo "FAIL: Bytom measurement.available must be false\n"; exit(1); }
+if (($bData["forecast"]["teryt"] ?? "") !== "2462") { echo "FAIL: Bytom TERYT must be 2462\n"; exit(1); }
+if (empty($bData["forecast"]["days"])) { echo "FAIL: Bytom must have IOŚ-PIB forecast days\n"; exit(1); }
+if (!str_contains($bData["forecast"]["label"], "Bytom")) { echo "FAIL: Bytom forecast label must contain Bytom\n"; exit(1); }
+echo "  ✓ [E1 DoD #2] Bytom (no station, IOŚ-PIB forecast, TERYT 2462) passed.\n";
+'
+
+# E1 DoD #4: Degradacja (symulacja awarii GIOŚ)
+run_php -r '
+define("MO_UNIT_TEST", true);
+$cities = require "src/cities.php";
+require "src/weather-api.php";
+
+$fakeConfig = $cities["gliwice"];
+$fakeConfig["sensors"]["pm10"] = 99999999;
+$fakeConfig["gios_station_id"] = 99999999;
+$degraded = mo_build_air($fakeConfig, null);
+if (($degraded["measurement"]["available"] ?? true) !== false) { echo "FAIL: Degraded station available must be false\n"; exit(1); }
+if (!str_contains($degraded["measurement"]["note"] ?? "", "chwilowo niedostępna")) { echo "FAIL: Degradation note missing\n"; exit(1); }
+if (empty($degraded["forecast"]["days"])) { echo "FAIL: Degraded city must still return IOŚ forecast\n"; exit(1); }
+echo "  ✓ [E1 DoD #4] Degradation chain (GIOŚ failure -> IOŚ forecast fallback) passed.\n";
+echo "✓ All E1 Air Quality API tests passed.\n";
 '
 
 echo "--> [9/11] Testing type=daily7 endpoint (7 days aggregation)..."

@@ -107,8 +107,9 @@
     '/* Sekcja jakości powietrza */',
     '.air-box{margin-top:10px;padding-top:8px;border-top:1px solid var(--mo-border,#eee);font-size:12px;}',
     '.air-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-weight:600;font-size:11px;letter-spacing:.02em;}',
-    '.air-stats{margin:6px 0 0;color:var(--mo-text,#1a1a1a);display:flex;gap:10px;}',
+    '.air-stats{margin:6px 0 0;color:var(--mo-text,#1a1a1a);font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;}',
     '.air-sub{font-size:11px;color:var(--mo-muted,#666);margin:4px 0 0;}',
+    '.air-advice{font-size:11px;line-height:1.35;color:var(--mo-text,#1a1a1a);margin:6px 0 0;padding:6px 8px;background:var(--mo-bg-sub,#f9f9f9);border-radius:6px;border-left:3px solid var(--mo-accent,#0b63ce);}',
 
     '/* Sekcja prognozy 7 dni */',
     '.daily-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--mo-border,#eee);}',
@@ -336,32 +337,65 @@
         var meas = air.measurement || {};
         var fcast = air.forecast || {};
 
-        var catIdx = meas.available ? (meas.category_index || 0) : 0;
-        var catName = meas.available ? (meas.category || 'Brak') : 'Prognoza';
+        var isMeas = Boolean(meas.available);
+        var catIdx = isMeas ? (meas.category_index || 0) : (fcast.category_index || 0);
+        var catName = isMeas ? (meas.category || 'Brak') : (fcast.category || 'Prognoza');
         var style = aqiStyle(catIdx);
 
-        var badge = el('span', 'air-badge', catName + (meas.available && catIdx ? ' (AQI ' + catIdx + ')' : ''));
+        // Badge EEA: np. "Powietrze umiarkowane (AQI 2)" lub "Prognoza: umiarkowane (AQI 2)"
+        var badgeText = '';
+        if (isMeas && catName && catName !== 'Brak indeksu' && catName !== 'Brak') {
+          badgeText = 'Powietrze ' + catName.toLowerCase() + (catIdx ? ' (AQI ' + catIdx + ')' : '');
+        } else if (!isMeas && fcast.category) {
+          badgeText = 'Prognoza: ' + fcast.category.toLowerCase() + (catIdx ? ' (AQI ' + catIdx + ')' : '');
+        } else {
+          badgeText = catName;
+        }
+
+        var badge = el('span', 'air-badge', badgeText);
         badge.style.backgroundColor = style.bg;
         badge.style.color = style.text;
         airBox.appendChild(badge);
 
-        var p10 = (meas.available && meas.pollutants && meas.pollutants.pm10 && meas.pollutants.pm10.value != null)
+        // Zanieczyszczenia: PM10 oraz PM2,5
+        var p10Val = (isMeas && meas.pollutants && meas.pollutants.pm10 && meas.pollutants.pm10.value != null)
           ? meas.pollutants.pm10.value + ' µg/m³'
-          : (fcast.days && fcast.days[0] ? fcast.days[0].pm10 + ' µg/m³ (mod.)' : 'b.d.');
+          : (!isMeas && fcast.days && fcast.days[0] && fcast.days[0].pm10 != null
+              ? fcast.days[0].pm10 + ' µg/m³ (prognoza)'
+              : 'b.d.');
 
-        var p25 = (meas.available && meas.pollutants && meas.pollutants.pm25 && meas.pollutants.pm25.value != null)
-          ? meas.pollutants.pm25.value + ' µg/m³'
-          : 'b.d.';
+        // PM2,5: Katowice to jedyna stacja z PM2,5 w sieci; dla pozostałych miast: "niedostępny"
+        var p25Val;
+        if (isMeas && meas.pollutants && meas.pollutants.pm25 && meas.pollutants.pm25.value != null) {
+          p25Val = meas.pollutants.pm25.value + ' µg/m³';
+        } else if (bundle.city === 'katowice' && isMeas) {
+          p25Val = 'b.d.';
+        } else {
+          p25Val = 'niedostępny';
+        }
 
         var stats = el('div', 'air-stats');
-        stats.appendChild(el('span', null, 'PM10: ' + p10));
-        stats.appendChild(el('span', null, 'PM2,5: ' + p25));
+        if (p25Val !== 'niedostępny') {
+          stats.appendChild(el('span', null, 'PM2,5: ' + p25Val));
+          stats.appendChild(document.createTextNode(' · '));
+          stats.appendChild(el('span', null, 'PM10: ' + p10Val));
+        } else {
+          stats.appendChild(el('span', null, 'PM10: ' + p10Val));
+          stats.appendChild(document.createTextNode(' · '));
+          stats.appendChild(el('span', null, 'PM2,5: ' + p25Val));
+        }
         airBox.appendChild(stats);
 
-        var subText = meas.available
-          ? (meas.advice || ('Pomiar: ' + (meas.station_name || 'GIOŚ')))
-          : (fcast.label || 'Prognoza jakości powietrza');
-        airBox.appendChild(el('p', 'air-sub', subText));
+        // Etykieta źródła / statusu degradacji
+        var sourceLabel = meas.label || (isMeas ? ('Pomiar ze stacji GIOŚ' + (meas.station_name ? ' (' + meas.station_name + ')' : '')) : (fcast.label || 'Prognoza jakości powietrza IOŚ-PIB'));
+        airBox.appendChild(el('p', 'air-sub', sourceLabel));
+
+        // Zdrowotna porada EEA
+        var adviceText = isMeas ? meas.advice : fcast.advice;
+        if (adviceText) {
+          var adviceBox = el('p', 'air-advice', adviceText);
+          airBox.appendChild(adviceBox);
+        }
 
         card.appendChild(airBox);
       }

@@ -58,21 +58,49 @@ assert(srcJs.includes("if (code <= 67)  return ['rain', 'Deszcz'];"), 'WMO code 
 assert(srcJs.includes("if (code <= 77)  return ['snow', 'Śnieg'];"), 'WMO code snow mapping exists');
 
 // Test 7: Minifikacja i rozmiar bundle
-console.log('  [7/10] Checking minified artifact integrity...');
-assert(distMinJs.length > 2000 && distMinJs.length < 15000, `Minified JS size within budget: ${distMinJs.length} bytes`);
+console.log('  [7/15] Checking minified artifact integrity...');
+assert(distMinJs.length > 2000 && distMinJs.length < 18000, `Minified JS size within budget: ${distMinJs.length} bytes`);
 assert(distMinJs.startsWith('/*!'), 'Minified bundle must preserve leading license comment /*!');
 
 // Test 8: P1.8 - Czyszczenie starych kluczy localStorage v1
-console.log('  [8/10] Checking localStorage v1 cleanup logic (P1.8)...');
+console.log('  [8/15] Checking localStorage v1 cleanup logic (P1.8)...');
 assert(srcJs.includes("indexOf('mo-weather:v1:') === 0"), 'Widget must clean legacy mo-weather:v1:* keys on init');
 
 // Test 9: P1.9 - Zgodność wsteczna: domyślne modules="current"
-console.log('  [9/10] Checking backward compatibility default modules="current" (P1.9)...');
+console.log('  [9/15] Checking backward compatibility default modules="current" (P1.9)...');
 assert(srcJs.includes("if (!m) return ['current'];"), 'Widget must default to modules=["current"] when attribute omitted');
 
 // Test 10: P1.10 - Dynamiczna atrybucja per aktywny moduł
-console.log('  [10/10] Checking dynamic module attribution in footer (P1.10)...');
+console.log('  [10/15] Checking dynamic module attribution in footer (P1.10)...');
 assert(srcJs.includes("var hasMet = modules.indexOf('current') !== -1 || modules.indexOf('daily7') !== -1 || modules.indexOf('nowcast') !== -1;"), 'Footer checks for MET Norway modules');
 assert(srcJs.includes("var hasAir = modules.indexOf('air') !== -1;"), 'Footer checks for air module');
+
+// Test 11: E1 DoD #1 — Katowice: PM2,5 + PM10, godzina pomiaru i stacja GIOŚ
+console.log('  [11/15] Checking E1 DoD #1 (Katowice: PM2,5 + PM10 measurement formatting)...');
+assert(srcJs.includes("stats.appendChild(el('span', null, 'PM2,5: ' + p25Val));"), 'Katowice air card includes PM2.5');
+assert(srcJs.includes("stats.appendChild(el('span', null, 'PM10: ' + p10Val));"), 'Katowice air card includes PM10');
+assert(srcJs.includes("bundle.city === 'katowice' && isMeas"), 'Katowice is explicitly distinguished for PM2.5 measurement');
+
+// Test 12: E1 DoD #2 — Bytom: prognoza IOŚ-PIB dla miast bez stacji GIOŚ
+console.log('  [12/15] Checking E1 DoD #2 (Bytom: IOŚ-PIB forecast formatting)...');
+assert(srcJs.includes("fcast.days[0].pm10 + ' µg/m³ (prognoza)'"), 'Cities without GIOŚ display (prognoza) label on PM10');
+assert(srcJs.includes("badgeText = 'Prognoza: ' + fcast.category.toLowerCase()"), 'Forecast badge indicates Prognoza: category');
+
+// Test 13: E1 DoD #3 — Gliwice: PM10 aktywne, PM2,5 oznaczone jako niedostępny
+console.log('  [13/15] Checking E1 DoD #3 (Gliwice: PM10 measurement + PM2,5 marked as niedostępny)...');
+assert(srcJs.includes("p25Val = 'niedostępny';"), 'Cities without PM2.5 sensor explicitly show niedostępny');
+assert(!srcJs.includes("p25Val = '0';"), 'Never output 0 for missing pollutant data');
+
+// Test 14: E1 DoD #4 — Degradacja: obsługa chwilowej niedostępności stacji GIOŚ
+console.log('  [14/15] Checking E1 DoD #4 (Degradation fallback & label)...');
+assert(srcJs.includes("var sourceLabel = meas.label ||"), 'Air card renders sourceLabel from measurement.label or forecast.label');
+assert(srcJs.includes('.air-sub{font-size:11px;color:var(--mo-muted,#666);margin:4px 0 0;}'), 'Air sublabel styling present');
+
+// Test 15: E1 DoD #5 — Europejski AQI (EEA) oraz dedykowany blok porady zdrowotnej
+console.log('  [15/15] Checking E1 DoD #5 (EEA AQI styling & health advice block)...');
+assert(srcJs.includes('.air-advice{font-size:11px;'), 'air-advice CSS class defined for health recommendations');
+assert(srcJs.includes("var adviceBox = el('p', 'air-advice', adviceText);"), 'air-advice DOM node created with textContent');
+assert(srcJs.includes("case 1: return { bg: '#e6f4ea', text: '#137333', label: 'Bardzo dobry' };"), 'EEA AQI Level 1 color defined');
+assert(srcJs.includes("case 6: return { bg: '#f3e8fd', text: '#7627bb', label: 'Bardzo zły' };"), 'EEA AQI Level 6 color defined');
 
 console.log('✓ All Frontend Widget Unit Tests passed successfully!\n');
