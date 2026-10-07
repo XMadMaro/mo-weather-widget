@@ -100,7 +100,7 @@
     '/* Sekcja alertu opadów nowcast */',
     '.nowcast{margin:8px 0 0;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}',
     '.nowcast-active{background:#e8f0fe;color:#174ea6;border:1px solid #d2e3fc;}',
-    '.nowcast-none{background:#f8f9fa;color:#5f6368;border:1px solid #e8eaed;}',
+    '.nowcast-none{background:var(--mo-bg-sub,#f8f9fa);color:var(--mo-muted,#5f6368);border:1px solid var(--mo-border,#e8eaed);}',
     '.nowcast .ico-s{width:16px;height:16px;flex:0 0 auto;}',
     '.nowcast .ico-s svg{width:100%;height:100%;display:block;}',
 
