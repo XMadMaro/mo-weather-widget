@@ -1,0 +1,21 @@
+{
+  "id": 17318,
+  "stCalcDate": "2026-10-07 07:20:15",
+  "stIndexLevel": {
+    "id": 2,
+    "indexLevelName": "Umiarkowany"
+  },
+  "stSourceDataDate": "2026-10-07 07:00:00",
+  "pm10CalcDate": "2026-10-07 07:20:15",
+  "pm10IndexLevel": {
+    "id": 2,
+    "indexLevelName": "Umiarkowany"
+  },
+  "pm10SourceDataDate": "2026-10-07 07:00:00",
+  "pm25CalcDate": "2026-10-07 07:20:15",
+  "pm25IndexLevel": {
+    "id": 1,
+    "indexLevelName": "Dobry"
+  },
+  "pm25SourceDataDate": "2026-10-07 07:00:00"
+}
