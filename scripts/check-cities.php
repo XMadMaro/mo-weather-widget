@@ -69,6 +69,11 @@ if (isset($options['self-test'])) {
             $errors[] = "$slug: Nieprawidłowy teryt_level (musi być 'city' lub 'county')";
         }
 
+        // Walidacja daty ostatniej weryfikacji
+        if (empty($c['last_verified']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$c['last_verified'])) {
+            $errors[] = "$slug: Brak lub nieprawidłowy format last_verified (wymagany YYYY-MM-DD)";
+        }
+
         // Walidacja stacji GIOŚ
         if (!empty($c['has_gios'])) {
             $activeGios[] = $slug;
@@ -209,7 +214,46 @@ if (isset($options['fixtures'])) {
     exit($success ? 0 : 1);
 }
 
-// --- 3. DOMYŚLNY TRYB: Raport konfiguracji i stanu 14 miast ---
+// --- 3. TRYB --record ---
+if (isset($options['record'])) {
+    $targetFile = is_string($options['record']) && !empty($options['record'])
+        ? $options['record']
+        : $fixturesDir . '/cities-live.json';
+
+    $recordData = [
+        'recorded_at' => date('c'),
+        'cities' => [],
+    ];
+
+    foreach ($cities as $slug => $c) {
+        $recordData['cities'][$slug] = [
+            'label'           => $c['label'],
+            'teryt'           => $c['teryt'],
+            'has_gios'        => $c['has_gios'],
+            'gios_station_id' => $c['gios_station_id'],
+            'sensors'         => $c['sensors'] ?? [],
+            'last_verified'   => $c['last_verified'] ?? date('Y-m-d'),
+        ];
+    }
+
+    $json = json_encode($recordData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    $dir = dirname($targetFile);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    if (file_put_contents($targetFile, $json) === false) {
+        fwrite(STDERR, "BŁĄD: Nie można zapisać pliku: $targetFile\n");
+        exit(1);
+    }
+
+    if (!$quiet) {
+        echo "✓ [record] Zapisano snapshot konfiguracji i stanu do: $targetFile\n";
+    }
+    exit(0);
+}
+
+// --- 4. DOMYŚLNY TRYB: Raport konfiguracji i stanu 14 miast ---
 $summary = [
     'timestamp' => date('c'),
     'cities_count' => count($cities),

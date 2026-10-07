@@ -35,6 +35,7 @@ return [
             'pm25' => 28759,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'gliwice' => [
         'slug'            => 'gliwice',
@@ -52,6 +53,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [5314], // manualne PM2,5
+        'last_verified'   => '2026-10-07',
     ],
     'sosnowiec' => [
         'slug'            => 'sosnowiec',
@@ -69,6 +71,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'zabrze' => [
         'slug'            => 'zabrze',
@@ -86,6 +89,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [29679], // manualne PM10
+        'last_verified'   => '2026-10-07',
     ],
     'tychy' => [
         'slug'            => 'tychy',
@@ -103,6 +107,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'dabrowa-gornicza' => [
         'slug'            => 'dabrowa-gornicza',
@@ -120,6 +125,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [5287], // manualne PM10
+        'last_verified'   => '2026-10-07',
     ],
     'bytom' => [
         'slug'            => 'bytom',
@@ -137,6 +143,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'chorzow' => [
         'slug'            => 'chorzow',
@@ -154,6 +161,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'swietochlowice' => [
         'slug'            => 'swietochlowice',
@@ -171,6 +179,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'ruda-slaska' => [
         'slug'            => 'ruda-slaska',
@@ -188,6 +197,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'piekary-slaskie' => [
         'slug'            => 'piekary-slaskie',
@@ -205,6 +215,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'tarnowskie-gory' => [
         'slug'            => 'tarnowskie-gory',
@@ -222,6 +233,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'knurow' => [
         'slug'            => 'knurow',
@@ -239,6 +251,7 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
     'bedzin' => [
         'slug'            => 'bedzin',
@@ -256,5 +269,6 @@ return [
             'pm25' => null,
         ],
         'ignored_sensors' => [],
+        'last_verified'   => '2026-10-07',
     ],
 ];

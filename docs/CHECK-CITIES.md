@@ -54,10 +54,20 @@ php scripts/check-cities.php --record=scripts/fixtures/cities-live.json
 
 ---
 
-## 4. Konfiguracja w Cronie na serwerze produkcyjnym
+## 4. Konfiguracja w Cronie na serwerze produkcyjnym (Alertowanie przy awarii)
 
-Zalecane codzienne uruchomienie o 6:00 rano z wyjściem do logu:
+Narzędzie zwraca kod wyjścia:
+- `exit 0` — pełna integralność reguł i stacji,
+- `exit ≠ 0` — wykryto defekt, wyłączenie stacji lub niespójność konfiguracji (**zdarzenie alertowalne**).
 
+### 4.1 Przykład: Alert e-mail do zespołu operacyjnego
 ```cron
-0 6 * * * cd /var/www/mo-weather && php scripts/check-cities.php --self-test --quiet || echo "ALERT: check-cities self-test failed" | mail -s "MO Weather Alert" devops@media-operator.pl
+# Codziennie o 06:00 rano — walidacja konfiguracji i stacji z powiadomieniem e-mail przy błędzie
+0 6 * * * cd /var/www/mo-weather && php scripts/check-cities.php --self-test --quiet || (echo "ALERT: Błąd weryfikacji stacji MO Weather Widget" | mail -s "[P0 ALERT] Awaria stacji pogodowych" redakcja@media-operator.pl devops@media-operator.pl)
+```
+
+### 4.2 Przykład: Alert na kanał Slack / Webhook
+```cron
+# Codziennie o 06:00 rano — wysyłka JSON payload do webhooka Slack/Teams przy kodzie wyjścia != 0
+0 6 * * * cd /var/www/mo-weather && php scripts/check-cities.php --self-test --format=json > /tmp/check-cities.json || curl -X POST -H 'Content-type: application/json' --data '{"text":"🚨 *ALERT MO Weather Widget*: Wykryto problem ze stacjami GIOŚ/IOŚ! Sprawdź raport: check-cities.php"}' https://hooks.slack.com/services/TWOJ/WEBHOOK/SLACK
 ```

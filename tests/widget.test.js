@@ -58,8 +58,21 @@ assert(srcJs.includes("if (code <= 67)  return ['rain', 'Deszcz'];"), 'WMO code 
 assert(srcJs.includes("if (code <= 77)  return ['snow', 'Śnieg'];"), 'WMO code snow mapping exists');
 
 // Test 7: Minifikacja i rozmiar bundle
-console.log('  [7/7] Checking minified artifact integrity...');
+console.log('  [7/10] Checking minified artifact integrity...');
 assert(distMinJs.length > 2000 && distMinJs.length < 15000, `Minified JS size within budget: ${distMinJs.length} bytes`);
 assert(distMinJs.startsWith('/*!'), 'Minified bundle must preserve leading license comment /*!');
+
+// Test 8: P1.8 - Czyszczenie starych kluczy localStorage v1
+console.log('  [8/10] Checking localStorage v1 cleanup logic (P1.8)...');
+assert(srcJs.includes("indexOf('mo-weather:v1:') === 0"), 'Widget must clean legacy mo-weather:v1:* keys on init');
+
+// Test 9: P1.9 - Zgodność wsteczna: domyślne modules="current"
+console.log('  [9/10] Checking backward compatibility default modules="current" (P1.9)...');
+assert(srcJs.includes("if (!m) return ['current'];"), 'Widget must default to modules=["current"] when attribute omitted');
+
+// Test 10: P1.10 - Dynamiczna atrybucja per aktywny moduł
+console.log('  [10/10] Checking dynamic module attribution in footer (P1.10)...');
+assert(srcJs.includes("var hasMet = modules.indexOf('current') !== -1 || modules.indexOf('daily7') !== -1 || modules.indexOf('nowcast') !== -1;"), 'Footer checks for MET Norway modules');
+assert(srcJs.includes("var hasAir = modules.indexOf('air') !== -1;"), 'Footer checks for air module');
 
 console.log('✓ All Frontend Widget Unit Tests passed successfully!\n');

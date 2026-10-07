@@ -44,10 +44,10 @@ $MO_CITIES = require __DIR__ . '/cities.php';
 // Czasy świeżości cache (w sekundach)
 const MO_TTL_CURRENT = 1800; // 30 min (MET Norway)
 const MO_TTL_DAILY7  = 1800; // 30 min (MET Norway)
-const MO_TTL_NOWCAST = 900;  // 15 min (MET Norway)
+const MO_TTL_NOWCAST = 300;  // 5 min (P0.4: nowcast TTL = 300 s)
 const MO_TTL_AIR     = 5400; // 90 min (GIOŚ publikuje godzinowo)
 const MO_BACKOFF_TTL = 60;   // Cooldown circuit breakera: 60 s po awarii API
-const MO_HTTP_MAXAGE = 300;  // Cache-Control dla przeglądarki/CDN
+const MO_HTTP_MAXAGE = 60;   // P1.6: Cache-Control public, max-age=60 dla CDN i przeglądarki
 const MO_RATE_MAX    = 30;   // Max cache-missów na okno
 const MO_RATE_WINDOW = 60;   // Okno rate limitera (sekundy)
 const MO_API_TIMEOUT = 8;    // Timeout zapytań HTTP (sekundy)
@@ -491,22 +491,21 @@ function mo_build_nowcast(array $met, array $cityConfig): ?array {
             'active'    => true,
             'kind'      => 'ongoing',
             'eta_iso'   => $now->format(DateTimeInterface::RFC3339),
-            'eta_local' => $now->format('H:i'),
+            'eta_local' => $now->format('H:00'),
             'minutes'   => 0,
             'text'      => 'Pada deszcz',
         ];
     } elseif ($rainStartDt !== null) {
-        $diffMin = max(5, (int) round(($rainStartDt->getTimestamp() - $now->getTimestamp()) / 60));
-        // Zaokrąglenie do 5 minut
-        $roundedMin = (int) (round($diffMin / 5) * 5);
-        $etaFormatted = $rainStartDt->format('H:i');
+        $hStart = $rainStartDt->format('H:00');
+        $hEnd = $rainStartDt->modify('+1 hour')->format('H:00');
+        $diffMin = max(0, (int) round(($rainStartDt->getTimestamp() - $now->getTimestamp()) / 60));
         $alert = [
             'active'    => true,
             'kind'      => 'starting',
             'eta_iso'   => $rainStartDt->format(DateTimeInterface::RFC3339),
-            'eta_local' => $etaFormatted,
-            'minutes'   => $roundedMin,
-            'text'      => 'Deszcz zacznie się około ' . $etaFormatted,
+            'eta_local' => $hStart,
+            'minutes'   => $diffMin,
+            'text'      => 'Opady możliwe między ' . $hStart . ' a ' . $hEnd,
         ];
     } else {
         $alert = [
@@ -533,7 +532,7 @@ function mo_build_nowcast(array $met, array $cityConfig): ?array {
 /**
  * Moduł AIR: pomiary GIOŚ + prognoza IOŚ-PIB
  */
-function mo_build_air(array $cityConfig): ?array {
+function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
     $hasGios = !empty($cityConfig['has_gios']) && !empty($cityConfig['gios_station_id']);
     $stationId = $cityConfig['gios_station_id'] ?? null;
     $measurement = [
@@ -551,6 +550,8 @@ function mo_build_air(array $cityConfig): ?array {
             'no2'  => ['value' => null, 'unit' => 'µg/m³', 'index' => null],
         ],
     ];
+
+    $giosSuccess = false;
 
     if ($hasGios && $stationId !== null) {
         $idxData = mo_fetch_gios_index((int) $stationId);
@@ -611,6 +612,7 @@ function mo_build_air(array $cityConfig): ?array {
         $measuredAt = $pm10Date ?: $pm25Date ?: ($aq['Data danych źródłowych, z których policzono wartość indeksu dla wskaźnika st'] ?? ($aq['stSourceDataDate'] ?? null));
 
         if ($pm10Val !== null || $pm25Val !== null || $catName !== null) {
+            $giosSuccess = true;
             $measurement = [
                 'available'      => true,
                 'source'         => 'gios',
@@ -640,6 +642,23 @@ function mo_build_air(array $cityConfig): ?array {
                     ],
                 ],
             ];
+        }
+    }
+
+    // Degradacja P0.3: jeśli stacja GIOŚ była skonfigurowana, ale zapytanie nie powiodło się
+    if ($hasGios && !$giosSuccess) {
+        // Krok 1: sprawdź stale cache (do 90 min)
+        if ($cached !== null && !empty($cached['measurement']['available']) && (time() - (int)($cached['fetched_at'] ?? 0)) <= 5400) {
+            $measurement = $cached['measurement'];
+            $measurement['is_stale'] = true;
+            $measurement['note'] = 'Dane ze stacji GIOŚ (ostatni znany odczyt)';
+        } else {
+            // Krok 2: stacja niedostępna -> oznacz brak pomiaru i przejdź do prognozy IOŚ-PIB
+            $measurement['available'] = false;
+            $measurement['source'] = 'gios';
+            $measurement['station_id'] = $stationId;
+            $measurement['station_name'] = $cityConfig['station_name'] ?? 'Stacja GIOŚ';
+            $measurement['note'] = 'Stacja pomiarowa GIOŚ chwilowo niedostępna — prezentowana prognoza IOŚ-PIB';
         }
     }
 
@@ -755,19 +774,40 @@ if ($cached !== null && ($now - (int) $cached['fetched_at']) < $ttl) {
     // CACHE MISS: Zliczamy do rate limitera
     mo_rate_limit($dir);
 
-    // SINGLE-FLIGHT LOCK: Zapobiega thundering herd
+    // SINGLE-FLIGHT LOCK: Zapobiega thundering herd (P1.5: max-wait 2s, potem stale cache)
     $lockFh = @fopen($lockFile, 'c+');
+    $gotLock = false;
     if ($lockFh) {
-        flock($lockFh, LOCK_EX);
-        // Ponowne sprawdzenie cache po uzyskaniu blokady (być może inny proces właśnie zapisał)
-        $cachedAgain = mo_read_cache($cacheFile);
-        if ($cachedAgain !== null && (time() - (int) $cachedAgain['fetched_at']) < $ttl) {
-            $payload             = $cachedAgain;
-            $payload['is_stale'] = false;
-            $payload['cache']    = 'fresh';
-            flock($lockFh, LOCK_UN);
+        $startTime = microtime(true);
+        while ((microtime(true) - $startTime) < 2.0) {
+            if (flock($lockFh, LOCK_EX | LOCK_NB)) {
+                $gotLock = true;
+                break;
+            }
+            usleep(100000); // 100 ms
+        }
+
+        if ($gotLock) {
+            // Ponowne sprawdzenie cache po uzyskaniu blokady (być może inny proces właśnie zapisał)
+            $cachedAgain = mo_read_cache($cacheFile);
+            if ($cachedAgain !== null && (time() - (int) $cachedAgain['fetched_at']) < $ttl) {
+                $payload             = $cachedAgain;
+                $payload['is_stale'] = false;
+                $payload['cache']    = 'fresh';
+                flock($lockFh, LOCK_UN);
+                fclose($lockFh);
+                goto finalize_response;
+            }
+        } else {
+            // Timeout 2 s oczekiwania na blokadę -> natychmiast stale cache jeśli dostępny
             fclose($lockFh);
-            goto finalize_response;
+            $lockFh = null;
+            if ($cached !== null) {
+                $payload             = $cached;
+                $payload['is_stale'] = true;
+                $payload['cache']    = 'stale';
+                goto finalize_response;
+            }
         }
     }
 
@@ -776,7 +816,7 @@ if ($cached !== null && ($now - (int) $cached['fetched_at']) < $ttl) {
     $liveData = null;
 
     if ($type === 'air') {
-        $liveData = mo_build_air($cityConf);
+        $liveData = mo_build_air($cityConf, $cached);
     } else {
         $met = mo_fetch_met_norway((float) $cityConf['lat'], (float) $cityConf['lon']);
         if ($met !== null) {
@@ -804,13 +844,13 @@ if ($cached !== null && ($now - (int) $cached['fetched_at']) < $ttl) {
             $payload['is_stale'] = true;
             $payload['cache']    = 'stale';
         } else {
-            if ($lockFh) { flock($lockFh, LOCK_UN); fclose($lockFh); }
+            if ($lockFh && $gotLock) { flock($lockFh, LOCK_UN); fclose($lockFh); }
             header('Retry-After: 300');
             mo_json(['error' => 'service temporarily unavailable', 'retry_after_seconds' => 300], 503);
         }
     }
 
-    if ($lockFh) {
+    if ($lockFh && $gotLock) {
         flock($lockFh, LOCK_UN);
         fclose($lockFh);
     }

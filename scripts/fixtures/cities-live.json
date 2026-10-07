@@ -1,0 +1,159 @@
+{
+    "recorded_at": "2026-10-07T02:58:15+00:00",
+    "cities": {
+        "katowice": {
+            "label": "Katowice",
+            "teryt": "2469",
+            "has_gios": true,
+            "gios_station_id": 17318,
+            "sensors": {
+                "pm10": 28758,
+                "pm25": 28759
+            },
+            "last_verified": "2026-10-07"
+        },
+        "gliwice": {
+            "label": "Gliwice",
+            "teryt": "2466",
+            "has_gios": true,
+            "gios_station_id": 809,
+            "sensors": {
+                "pm10": 5312,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "sosnowiec": {
+            "label": "Sosnowiec",
+            "teryt": "2475",
+            "has_gios": true,
+            "gios_station_id": 837,
+            "sensors": {
+                "pm10": 5480,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "zabrze": {
+            "label": "Zabrze",
+            "teryt": "2478",
+            "has_gios": true,
+            "gios_station_id": 17880,
+            "sensors": {
+                "pm10": 29671,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "tychy": {
+            "label": "Tychy",
+            "teryt": "2477",
+            "has_gios": true,
+            "gios_station_id": 841,
+            "sensors": {
+                "pm10": 5505,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "dabrowa-gornicza": {
+            "label": "Dąbrowa Górnicza",
+            "teryt": "2465",
+            "has_gios": true,
+            "gios_station_id": 805,
+            "sensors": {
+                "pm10": 5286,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "bytom": {
+            "label": "Bytom",
+            "teryt": "2462",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "chorzow": {
+            "label": "Chorzów",
+            "teryt": "2463",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "swietochlowice": {
+            "label": "Świętochłowice",
+            "teryt": "2476",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "ruda-slaska": {
+            "label": "Ruda Śląska",
+            "teryt": "2472",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "piekary-slaskie": {
+            "label": "Piekary Śląskie",
+            "teryt": "2471",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "tarnowskie-gory": {
+            "label": "Tarnowskie Góry",
+            "teryt": "2413",
+            "has_gios": false,
+            "gios_station_id": 839,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "knurow": {
+            "label": "Knurów",
+            "teryt": "2405",
+            "has_gios": false,
+            "gios_station_id": 818,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        },
+        "bedzin": {
+            "label": "Będzin",
+            "teryt": "2401",
+            "has_gios": false,
+            "gios_station_id": null,
+            "sensors": {
+                "pm10": null,
+                "pm25": null
+            },
+            "last_verified": "2026-10-07"
+        }
+    }
+}

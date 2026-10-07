@@ -14,6 +14,16 @@
   var LS_PREFIX  = 'mo-weather:v2:';
   var instances  = [];
 
+  // P1.8: Migracja kluczy localStorage v1 -> v2 (usunięcie pozostałości mo-weather:v1:*)
+  try {
+    for (var lsi = localStorage.length - 1; lsi >= 0; lsi--) {
+      var lsk = localStorage.key(lsi);
+      if (lsk && lsk.indexOf('mo-weather:v1:') === 0) {
+        localStorage.removeItem(lsk);
+      }
+    }
+  } catch (e) {}
+
   /* Ikony: statyczne SVG (bezpieczne do innerHTML — nie pochodzą z API) */
   var ICONS = {
     sun:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
@@ -236,15 +246,22 @@
 
       this._root.appendChild(row);
 
-      // Stopka z atrybucją (WCAG AA kontrast >= 4.5:1)
+      // Stopka z atrybucją (WCAG AA kontrast >= 4.5:1, dynamiczna per aktywne moduły - P1.10)
       var foot = el('p', 'foot');
       foot.appendChild(document.createTextNode('Dane: '));
-      var aMet = el('a', null, 'MET Norway');
-      aMet.href = 'https://www.met.no/'; aMet.target = '_blank'; aMet.rel = 'noopener noreferrer';
-      foot.appendChild(aMet);
+      var hasMet = modules.indexOf('current') !== -1 || modules.indexOf('daily7') !== -1 || modules.indexOf('nowcast') !== -1;
+      var hasAir = modules.indexOf('air') !== -1;
+      var added = false;
 
-      if (modules.indexOf('air') !== -1) {
-        foot.appendChild(document.createTextNode(' · '));
+      if (hasMet) {
+        var aMet = el('a', null, 'MET Norway');
+        aMet.href = 'https://www.met.no/'; aMet.target = '_blank'; aMet.rel = 'noopener noreferrer';
+        foot.appendChild(aMet);
+        added = true;
+      }
+
+      if (hasAir) {
+        if (added) foot.appendChild(document.createTextNode(' · '));
         var aGios = el('a', null, 'GIOŚ');
         aGios.href = 'https://powietrze.gios.gov.pl/'; aGios.target = '_blank'; aGios.rel = 'noopener noreferrer';
         foot.appendChild(aGios);
