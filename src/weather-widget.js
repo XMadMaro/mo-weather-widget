@@ -94,12 +94,12 @@
     '.temp{font-size:28px;font-weight:700;line-height:1;margin:0;}',
     '.desc{font-size:13px;color:var(--mo-muted,#666);margin:6px 0 0;}',
     '.meta{font-size:12px;color:var(--mo-muted,#666);margin:6px 0 0;}',
-    '.stale{display:inline-block;margin-top:8px;font-size:11px;color:#8a5a00;background:#fff4d6;border:1px solid #f0d896;',
+    '.stale{display:inline-block;margin-top:8px;font-size:11px;color:var(--mo-stale-text,#8a5a00);background:var(--mo-stale-bg,#fff4d6);border:1px solid var(--mo-stale-border,#f0d896);',
     'border-radius:999px;padding:2px 8px;}',
     
     '/* Sekcja alertu opadów nowcast */',
     '.nowcast{margin:8px 0 0;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}',
-    '.nowcast-active{background:#e8f0fe;color:#174ea6;border:1px solid #d2e3fc;}',
+    '.nowcast-active{background:var(--mo-nowcast-active-bg,#e8f0fe);color:var(--mo-nowcast-active-text,#174ea6);border:1px solid var(--mo-nowcast-active-border,#d2e3fc);}',
     '.nowcast-none{background:var(--mo-bg-sub,#f8f9fa);color:var(--mo-muted,#5f6368);border:1px solid var(--mo-border,#e8eaed);}',
     '.nowcast .ico-s{width:16px;height:16px;flex:0 0 auto;}',
     '.nowcast .ico-s svg{width:100%;height:100%;display:block;}',
@@ -107,6 +107,13 @@
     '/* Sekcja jakości powietrza */',
     '.air-box{margin-top:10px;padding-top:8px;border-top:1px solid var(--mo-border,#eee);font-size:12px;}',
     '.air-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-weight:600;font-size:11px;letter-spacing:.02em;}',
+    '.air-badge-1{background:var(--mo-aqi1-bg,#e6f4ea)!important;color:var(--mo-aqi1-text,#137333)!important;}',
+    '.air-badge-2{background:var(--mo-aqi2-bg,#edf7ed)!important;color:var(--mo-aqi2-text,#1e4620)!important;}',
+    '.air-badge-3{background:var(--mo-aqi3-bg,#fef7e0)!important;color:var(--mo-aqi3-text,#b06000)!important;}',
+    '.air-badge-4{background:var(--mo-aqi4-bg,#feefe3)!important;color:var(--mo-aqi4-text,#a53b00)!important;}',
+    '.air-badge-5{background:var(--mo-aqi5-bg,#fce8e6)!important;color:var(--mo-aqi5-text,#c5221f)!important;}',
+    '.air-badge-6{background:var(--mo-aqi6-bg,#f3e8fd)!important;color:var(--mo-aqi6-text,#7627bb)!important;}',
+    '.air-badge-0{background:var(--mo-aqi0-bg,#f1f3f4)!important;color:var(--mo-aqi0-text,#3c4043)!important;}',
     '.air-stats{margin:6px 0 0;color:var(--mo-text,#1a1a1a);font-size:12px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;}',
     '.air-sub{font-size:11px;color:var(--mo-muted,#666);margin:4px 0 0;}',
     '.air-advice{font-size:11px;line-height:1.35;color:var(--mo-text,#1a1a1a);margin:6px 0 0;padding:6px 8px;background:var(--mo-bg-sub,#f9f9f9);border-radius:6px;border-left:3px solid var(--mo-accent,#0b63ce);}',
@@ -352,7 +359,7 @@
           badgeText = catName;
         }
 
-        var badge = el('span', 'air-badge', badgeText);
+        var badge = el('span', 'air-badge air-badge-' + catIdx, badgeText);
         badge.style.backgroundColor = style.bg;
         badge.style.color = style.text;
         airBox.appendChild(badge);
