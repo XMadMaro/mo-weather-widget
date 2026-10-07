@@ -36,6 +36,7 @@ jobs:
             dist/weather-widget.min.js
             dist/weather-widget.js
             dist/weather-api.php
+            dist/cities.php
           generate_release_notes: true
           draft: false
           prerelease: false
