@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MO Weather Widget — Demo dla Media Operator</title>
+<meta name="description" content="Lekki widget pogodowy Web Component z jakością powietrza GIOŚ/IOŚ-PIB i prognozą MET Norway dla 12 portali Media Operator.">
+<style>
+  :root {
+    --bg-page: #f8fafc;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --primary: #0284c7;
+    --primary-dark: #0369a1;
+    --accent: #10b981;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    line-height: 1.5;
+    padding-bottom: 48px;
+  }
+
+  header {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 36px 20px;
+    border-bottom: 3px solid var(--primary);
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    font-size: 15px;
+    color: #94a3b8;
+    max-width: 720px;
+  }
+
+  main {
+    margin-top: 32px;
+    display: grid;
+    gap: 32px;
+  }
+
+  .demo-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .city-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .city-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: #f8fafc;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  .city-btn:hover {
+    background: #e2e8f0;
+  }
+
+  .city-btn.active {
+    background: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
+  }
+
+  /* Sekcja motywu ciemnego */
+  .dark-card {
+    background: #090a0f;
+    border-radius: var(--radius);
+    padding: 20px;
+    --mo-card: #17181c;
+    --mo-text: #f4f4f5;
+    --mo-muted: #9ca3af;
+    --mo-border: #2b2d33;
+    --mo-accent: #6ab0ff;
+    --mo-bg-sub: #24262d;
+    --mo-foot: #9ca3af;
+    --mo-stale-bg: #2e2612;
+    --mo-stale-text: #ffe082;
+    --mo-stale-border: #4d3a17;
+    --mo-nowcast-active-bg: #142a42;
+    --mo-nowcast-active-text: #90caf9;
+    --mo-nowcast-active-border: #1e3a5f;
+    --mo-aqi1-bg: #13381e; --mo-aqi1-text: #a3e9b6;
+    --mo-aqi2-bg: #163d22; --mo-aqi2-text: #b7e4c7;
+    --mo-aqi3-bg: #3d3012; --mo-aqi3-text: #ffe082;
+    --mo-aqi4-bg: #3e2415; --mo-aqi4-text: #ffcc80;
+    --mo-aqi5-bg: #421818; --mo-aqi5-text: #ef9a9a;
+    --mo-aqi6-bg: #2e1642; --mo-aqi6-text: #ce93d8;
+    --mo-aqi0-bg: #24262d; --mo-aqi0-text: #9ca3af;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .feature-item {
+    background: #f8fafc;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  .feature-item strong {
+    display: block;
+    color: var(--text-main);
+    margin-bottom: 2px;
+  }
+
+  footer {
+    max-width: 980px;
+    margin: 40px auto 0;
+    padding: 24px 16px 0;
+    border-top: 1px solid var(--card-border);
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  footer a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 24px 16px; }
+    h1 { font-size: 20px; }
+    .demo-section { padding: 16px; }
+  }
+</style>
+<script src="/assets/weather-widget.min.js" defer></script>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <span class="badge">Wersja produkcyjna 2.0.0</span>
+    <h1>MO Weather Widget — demo dla Media Operator</h1>
+    <p class="subtitle">Autorski, lekki Web Component (Shadow DOM) dla 12 portali regionalnych. Dane z MET Norway (CC BY 4.0), GIOŚ oraz IOŚ-PIB. Zero zewnętrznych bibliotek, 100% legalny komercyjnie.</p>
+  </div>
+</header>
+
+<div class="container">
+  <main>
+    <!-- Sekcja 1: Tryb pojedynczego miasta (Single) z interaktywnym wyborem -->
+    <section class="demo-section">
+      <div class="section-header">
+        <div>
+          <h2>1. Tryb pojedynczy (Single City)</h2>
+          <p class="section-desc">Kompletny pakiet 4 modułów: pogoda bieżąca, powietrze GIOŚ/IOŚ, prognoza 7 dni oraz alert nowcast.</p>
+        </div>
+      </div>
+
+      <div class="city-selector">
+        <button class="city-btn active" data-city="katowice">Katowice (GIOŚ PM2,5+10)</button>
+        <button class="city-btn" data-city="gliwice">Gliwice (GIOŚ PM10)</button>
+        <button class="city-btn" data-city="sosnowiec">Sosnowiec (GIOŚ)</button>
+        <button class="city-btn" data-city="bytom">Bytom (IOŚ-PIB)</button>
+        <button class="city-btn" data-city="tarnowskie-gory">Tarnowskie Góry (Powiat)</button>
+        <button class="city-btn" data-city="tychy">Tychy (GIOŚ)</button>
+      </div>
+
+      <div id="single-slot" style="max-width: 520px;">
+        <mo-weather id="widget-single"
+                    mode="single"
+                    city-id="katowice"
+                    api-url="/api/weather"
+                    modules="current,air,daily7,nowcast"></mo-weather>
+      </div>
+    </section>
+
+    <!-- Sekcja 2: Tryb agregatora (Multi-City Carousel) -->
+    <section class="demo-section">
+      <div class="section-header">
+        <div>
+          <h2>2. Tryb agregatora miast (Aggregator Carousel)</h2>
+          <p class="section-desc">Pozioma karuzela dostępna z klawiatury (tabindex, ARIA region) dla sekcji regionalnych portali.</p>
+        </div>
+      </div>
+
+      <mo-weather mode="aggregator"
+                  cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom"
+                  api-url="/api/weather"
+                  modules="current,air"></mo-weather>
+    </section>
+
+    <!-- Sekcja 3: Theming CSS Variables (Motyw ciemny / Dark Mode) -->
+    <section class="demo-section">
+      <div class="section-header">
+        <div>
+          <h2>3. Tryb ciemny — pełna zgodność WCAG AAA</h2>
+          <p class="section-desc">Prezentacja integracji ze stylami portalu przez zmienne CSS (--mo-card, --mo-text, --mo-accent itp.).</p>
+        </div>
+      </div>
+
+      <div class="dark-card" style="max-width: 520px;">
+        <mo-weather mode="single"
+                    city-id="katowice"
+                    api-url="/api/weather"
+                    modules="current,air,daily7,nowcast"></mo-weather>
+      </div>
+    </section>
+
+    <!-- Sekcja 4: Kluczowe atuty techniczne dla zarządu / wydawcy -->
+    <section class="demo-section">
+      <h2>Architektura i bezpieczeństwo</h2>
+      <div class="features-grid">
+        <div class="feature-item">
+          <strong>100% Legalność komercyjna</strong>
+          MET Norway (CC BY 4.0) zastępuje darmowy plan Open-Meteo, chroniąc 12 portali przed roszczeniami licencyjnymi.
+        </div>
+        <div class="feature-item">
+          <strong>Ochrona prywatności & RODO</strong>
+          Zero zapytań z przeglądarki użytkownika do zewnętrznych API. Całość idzie przez proxy PHP z cache'owaniem.
+        </div>
+        <div class="feature-item">
+          <strong>Dostępność cyfrowa WCAG 2.1</strong>
+          Natywny Shadow DOM, aria-live dla alertu deszczu, pełna nawigacja klawiaturą i wysoki kontrast &gt; 7:1.
+        </div>
+        <div class="feature-item">
+          <strong>Optymalizacja CLS (0.0)</strong>
+          Sztywna rezerwacja wysokości szkieletora (170px) eliminuje skoki layoutu artykułów podczas ładowania.
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div>
+    <strong>Źródła danych:</strong> MET Norway locationforecast 2.0 (CC BY 4.0) · Główny Inspektorat Ochrony Środowiska (GIOŚ) · Instytut Ochrony Środowiska (IOŚ-PIB).
+  </div>
+  <div>
+    Wdrożenie dla Media Operator · 2026-10 · <a href="/api/weather?city=katowice&type=health" target="_blank">Status API (/api/weather?type=health)</a>
+  </div>
+</footer>
+
+<script>
+  // Obsługa przełączania miast w sekcji demonstracyjnej
+  document.querySelectorAll('.city-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.city-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var city = btn.getAttribute('data-city');
+      var widget = document.getElementById('widget-single');
+      if (widget) {
+        widget.setAttribute('city-id', city);
+      }
+    });
+  });
+</script>
+</body>
+</html>

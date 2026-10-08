@@ -21,6 +21,13 @@ cp src/weather-widget.js dist/weather-widget.js
 cp src/weather-api.php dist/weather-api.php
 cp src/cities.php dist/cities.php
 
-echo "✓ Build complete: dist/"
-ls -lh dist/
+# Kopiowanie zasobów do katalogu publicznego (Railway & Landing Page)
+mkdir -p public/assets public/api
+cp dist/weather-widget.min.js public/assets/weather-widget.min.js
+cp dist/weather-widget.js public/assets/weather-widget.js
+cp src/weather-api.php public/api/weather-api.php
+cp src/cities.php public/api/cities.php
+
+echo "✓ Build complete: dist/ and public/assets/"
+ls -lh dist/ public/assets/
 

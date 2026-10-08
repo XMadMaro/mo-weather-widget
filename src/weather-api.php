@@ -65,9 +65,26 @@ function mo_json(mixed $data, int $code = 200): never {
 }
 
 function mo_cache_dir(): string {
+    $envDir = getenv('MO_CACHE_DIR');
+    if ($envDir !== false && $envDir !== '') {
+        if (!is_dir($envDir)) @mkdir($envDir, 0775, true);
+        if (is_dir($envDir) && is_writable($envDir)) return rtrim($envDir, '/');
+    }
+
+    // Jeśli środowisko Railway lub system z ograniczonym zapisem poza /tmp
+    if (getenv('RAILWAY_ENVIRONMENT') || getenv('RAILWAY_STATIC_URL') || !is_writable(dirname(__DIR__))) {
+        $tmpDir = sys_get_temp_dir() . '/mo-cache';
+        if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
+        if (is_dir($tmpDir) && is_writable($tmpDir)) return $tmpDir;
+    }
+
     $dir = dirname(__DIR__) . '/var/cache';
     if (!is_dir($dir) && !@mkdir($dir, 0775, true)) {
         $dir = __DIR__ . '/.cache';
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    }
+    if (!is_dir($dir) || !is_writable($dir)) {
+        $dir = sys_get_temp_dir() . '/mo-cache';
         if (!is_dir($dir)) @mkdir($dir, 0775, true);
     }
     if (!is_file($dir . '/.htaccess')) @file_put_contents($dir . '/.htaccess', "Require all denied\n");
@@ -83,7 +100,11 @@ function mo_cors(): void {
     $host = strtolower($host);
 
     $allowed = MO_ALLOWED_ORIGINS;
-    if (getenv('APP_ENV') === 'development' || ($_SERVER['APP_ENV'] ?? '') === 'development') {
+    $allowed = array_merge($allowed, [
+        'up.railway.app',
+        'railway.app',
+    ]);
+    if (getenv('APP_ENV') === 'development' || ($_SERVER['APP_ENV'] ?? '') === 'development' || getenv('RAILWAY_ENVIRONMENT')) {
         $allowed = array_merge($allowed, ['localhost', '127.0.0.1']);
     }
 
@@ -112,7 +133,10 @@ function mo_rate_limit(string $dir): void {
         }
     }
 
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (str_contains($ip, ',')) {
+        $ip = trim(explode(',', $ip)[0]);
+    }
     $salt = date('Ymd'); // rotowana sól dzienna
     $file = $dir . '/rl_' . substr(hash('sha256', $ip . '|' . $salt . '|mo-weather'), 0, 16) . '.json';
     $fh = @fopen($file, 'c+');
