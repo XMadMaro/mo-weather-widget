@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <title>MO Weather Widget v2.1 — Demo dla Media Operator (slazag.pl)</title>
 <meta name="description" content="Autorski widget pogodowy Web Component z jakością powietrza GIOŚ/IOŚ-PIB i prognozą MET Norway dla 12 portali grupy Media Operator.">
 <style>
@@ -272,6 +273,35 @@
     font-style: italic;
   }
 
+  .demo-disclaimer-banner {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-left: 5px solid #d97706;
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #78350f;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+  }
+
+  .disclaimer-badge {
+    background: #d97706;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
   /* Generator Kodu */
   .gen-grid {
     display: grid;
@@ -448,6 +478,12 @@
           <button class="switch-btn" data-portal-mode="single" type="button">Inline (pełna karta)</button>
           <button class="switch-btn" data-portal-mode="floating" type="button">Floating (bubble)</button>
         </div>
+      </div>
+
+      <!-- Pasek informacyjny o charakterze demonstracyjnym makiety (zero CLS, kontrast >= 4.5:1) -->
+      <div class="demo-disclaimer-banner" role="note" aria-label="Informacja o charakterze demonstracyjnym">
+        <span class="disclaimer-badge">DEMO TECHNICZNE</span>
+        <span><strong>MAKIETA POGLĄDOWA</strong> — demonstracja integracji widgetu pogodowego dla Media Operator, nie oficjalna strona slazag.pl.</span>
       </div>
 
       <!-- Ramka portalu ŚLĄZAG -->
