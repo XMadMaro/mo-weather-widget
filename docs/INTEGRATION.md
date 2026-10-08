@@ -142,3 +142,42 @@ mo-weather.dark {
   --mo-accent: #6ab0ff;
 }
 ```
+
+---
+
+## 7. Tryby Osadzenia (v2.1+)
+
+Komponent `<mo-weather>` oferuje trzy zoptymalizowane tryby prezentacji za pomocą atrybutu `mode`:
+
+### A. Sidebar (kolumna boczna listy artykułów / widoku newsa)
+Kompaktowy pion (szerokość maks. 320 px) ze scroll-snapem na prognozę 7 dni:
+```html
+<script src="https://api.mediaoperator.pl/assets/weather-widget.min.js" defer></script>
+<mo-weather mode="sidebar" city-id="katowice" modules="current,air,daily7,nowcast" api-url="https://api.mediaoperator.pl/api/weather"></mo-weather>
+```
+*Opcjonalny atrybut `sticky` sprawia, że widget pozostaje przyklejony do górnej krawędzi ekranu podczas przewijania długiego artykułu:*
+```html
+<mo-weather mode="sidebar" sticky city-id="katowice" api-url="https://api.mediaoperator.pl/api/weather"></mo-weather>
+```
+
+### B. Floating (pływający launcher bubble w rogu ekranu)
+Dyskretny przycisk (56 px) w prawym dolnym rogu (lub lewym przy `position="bottom-left"`). Po kliknięciu rozwija panel a11y z obsługą klawisza Esc. Wystarczy jedna instancja przed zamykającym tagiem `</body>` w layoucie globalnym:
+```html
+<mo-weather mode="floating" city-id="katowice" position="bottom-right" api-url="https://api.mediaoperator.pl/api/weather"></mo-weather>
+```
+
+### C. Wdrożenie produkcyjne na slazag.pl (Craft CMS / Twig)
+Na portalach grupy Media Operator (np. slazag.pl) plik JS hostujemy bezpośrednio w zasobach portalu, a proxy PHP jako skrypt lokalny (ten sam origin → zero zapytań CORS):
+
+W szablonie Twig (`templates/_layout.twig` lub `templates/news/_entry.twig`):
+```twig
+{# 1. Załadowanie skryptu w sekcji <head> lub na końcu <body> #}
+<script src="/assets/js/weather-widget.min.js?v=2.1.0" defer></script>
+
+{# 2. Osadzenie w kolumnie bocznej artykułu #}
+<mo-weather mode="sidebar"
+            city-id="katowice"
+            modules="current,air,daily7,nowcast"
+            api-url="/weather-api.php"></mo-weather>
+```
+> **Nota architektoniczna**: Taki sposób wdrożenia eliminuje zależność od zewnętrznych CDN-ów, zapewnia zerowy czas oczekiwania na połączenie TLS i 100% zgodność z polityką Content Security Policy (CSP).

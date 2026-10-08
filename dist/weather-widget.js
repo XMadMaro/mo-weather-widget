@@ -135,11 +135,40 @@
     'background-size:200% 100%;animation:mo-sh 1.2s infinite;}',
     '@keyframes mo-sh{to{background-position:-200% 0;}}',
     '@media (prefers-reduced-motion:reduce){.skel{animation:none;} .nowcast{animation:none;}}',
-    '.err{font-size:13px;color:var(--mo-muted,#666);padding:12px;}'
+    '.err{font-size:13px;color:var(--mo-muted,#666);padding:12px;}',
+
+    '/* Tryb Sidebar (kompaktowy pion, max-width: 320px) */',
+    ':host([mode="sidebar"]), .mode-sidebar{display:block;max-width:var(--mo-sidebar-max-w,320px);width:100%;}',
+    ':host([mode="sidebar"][sticky]), .mode-sidebar.is-sticky{position:sticky;top:var(--mo-sticky-top,12px);z-index:var(--mo-sticky-z,10);}',
+    '.card-sidebar{max-width:100%;width:100%;box-sizing:border-box;}',
+    '.card-sidebar .daily-grid{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:2px;}',
+    '.card-sidebar .daily-col{flex:0 0 44px;scroll-snap-align:start;}',
+
+    '/* Tryb Floating (pływający launcher bubble 56px + panel) */',
+    ':host([mode="floating"]){display:block;contain:none;}',
+    '.float-wrap{position:fixed;z-index:var(--mo-z,2147000001);font-family:var(--mo-font,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);}',
+    '.float-wrap.pos-right{bottom:20px;right:20px;}',
+    '.float-wrap.pos-left{bottom:20px;left:20px;}',
+    '.float-btn{width:56px;height:56px;border-radius:50%;background:var(--mo-card,#ffffff);color:var(--mo-text,#0f172a);border:1px solid var(--mo-border,#cbd5e1);box-shadow:0 8px 24px rgba(0,0,0,0.18);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;outline:none;transition:transform .15s ease,box-shadow .15s ease;}',
+    '.float-btn:hover{transform:scale(1.05);box-shadow:0 10px 28px rgba(0,0,0,0.22);}',
+    '.float-btn:focus-visible{outline:2px solid var(--mo-accent,#0b63ce);outline-offset:2px;}',
+    '.float-btn .fb-ico{width:22px;height:22px;color:var(--mo-accent,#0b63ce);}',
+    '.float-btn .fb-ico svg{width:100%;height:100%;display:block;}',
+    '.float-btn .fb-temp{font-size:11px;font-weight:700;line-height:1;margin-top:2px;}',
+    '.float-panel{position:absolute;bottom:68px;right:0;width:360px;max-width:calc(100vw - 32px);max-height:80vh;overflow-y:auto;background:var(--mo-card,#ffffff);border:1px solid var(--mo-border,#e2e8f0);border-radius:var(--mo-radius,14px);box-shadow:0 12px 36px rgba(0,0,0,0.22);padding:14px;box-sizing:border-box;animation:mo-fade-in .2s ease;}',
+    '.float-wrap.pos-left .float-panel{right:auto;left:0;}',
+    '.float-panel[hidden]{display:none !important;}',
+    '.float-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--mo-border,#eee);}',
+    '.float-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mo-muted,#64748b);margin:0;}',
+    '.float-close{background:none;border:none;font-size:20px;line-height:1;cursor:pointer;color:var(--mo-muted,#64748b);padding:2px 8px;border-radius:4px;}',
+    '.float-close:hover{color:var(--mo-text,#0f172a);background:var(--mo-bg-sub,#f1f5f9);}',
+    '.float-close:focus-visible{outline:2px solid var(--mo-accent,#0b63ce);}',
+    '@keyframes mo-fade-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}',
+    '@media (prefers-reduced-motion:reduce){.float-panel{animation:none !important;}.float-btn{transition:none !important;}}'
   ].join('\n');
 
   class MoWeather extends HTMLElement {
-    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules']; }
+    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules', 'position', 'sticky']; }
 
     connectedCallback() {
       if (!this.shadowRoot) {
@@ -228,33 +257,7 @@
         });
     }
 
-    _render(cities, modules, results) {
-      var self = this;
-      if (this._ticker) {
-        clearInterval(this._ticker);
-        this._ticker = null;
-      }
-      this._root.textContent = '';
-      var row = el('div', 'row');
-      if ((this.getAttribute('mode') || 'single') === 'aggregator') {
-        row.setAttribute('role', 'region');
-        row.setAttribute('aria-label', 'Prognoza pogody dla wybranych miast');
-        row.setAttribute('tabindex', '0');
-      }
-      var any = false;
-
-      results.forEach(function (res) {
-        if (res.status !== 'fulfilled' || !res.value) {
-          var e = el('div', 'card'); e.appendChild(el('p', 'err', 'Pogoda chwilowo niedostępna'));
-          row.appendChild(e); return;
-        }
-        any = true;
-        row.appendChild(self._card(res.value, modules));
-      });
-
-      this._root.appendChild(row);
-
-      // Stopka z atrybucją (WCAG AA kontrast >= 4.5:1, dynamiczna per aktywne moduły - P1.10)
+    _foot(modules) {
       var foot = el('p', 'foot');
       foot.appendChild(document.createTextNode('Dane: '));
       var hasMet = modules.indexOf('current') !== -1 || modules.indexOf('daily7') !== -1 || modules.indexOf('nowcast') !== -1;
@@ -278,8 +281,126 @@
         aIos.href = 'https://ios.edu.pl/'; aIos.target = '_blank'; aIos.rel = 'noopener noreferrer';
         foot.appendChild(aIos);
       }
+      return foot;
+    }
 
-      this._root.appendChild(foot);
+    _render(cities, modules, results) {
+      var self = this;
+      if (this._ticker) {
+        clearInterval(this._ticker);
+        this._ticker = null;
+      }
+      this._root.textContent = '';
+      var mode = this.getAttribute('mode') || 'single';
+
+      // 1. Tryb Floating (pływający launcher bubble + modalny panel a11y)
+      if (mode === 'floating') {
+        var firstRes = results[0];
+        if (!firstRes || firstRes.status !== 'fulfilled' || !firstRes.value) {
+          this._root.appendChild(el('div', 'err', 'Pogoda chwilowo niedostępna'));
+          return;
+        }
+        var bundle = firstRes.value;
+        var cityName = (bundle.current && bundle.current.label) || bundle.city || 'Pogoda';
+        var cur = bundle.current || {};
+        var tempStr = cur.temperature != null ? cur.temperature + '°' : '—';
+        var m = wmo(cur.weather_code || 0);
+
+        var wrap = el('div', 'float-wrap ' + (this.getAttribute('position') === 'bottom-left' ? 'pos-left' : 'pos-right'));
+
+        // Launcher button
+        var btn = el('button', 'float-btn');
+        btn.setAttribute('type', 'button');
+        btn.setAttribute('aria-label', 'Pogoda — otwórz panel');
+        btn.setAttribute('aria-controls', 'mo-float-panel');
+        var isOpen = lsGet('floating-open') === true;
+        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+        var icoSpan = el('span', 'fb-ico');
+        icoSpan.innerHTML = ICONS[m[0]] || ICONS.sun;
+        btn.appendChild(icoSpan);
+        btn.appendChild(el('span', 'fb-temp', tempStr));
+
+        // Panel dialog
+        var panel = el('div', 'float-panel');
+        panel.id = 'mo-float-panel';
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-label', 'Prognoza pogody');
+        panel.setAttribute('aria-modal', 'false');
+        if (!isOpen) panel.setAttribute('hidden', '');
+
+        // Nagłówek panelu
+        var head = el('div', 'float-head');
+        head.appendChild(el('h4', 'float-title', 'Pogoda: ' + cityName));
+        var closeBtn = el('button', 'float-close', '×');
+        closeBtn.setAttribute('type', 'button');
+        closeBtn.setAttribute('aria-label', 'Zamknij panel');
+        head.appendChild(closeBtn);
+        panel.appendChild(head);
+
+        // Karta pogody i stopka w panelu
+        panel.appendChild(self._card(bundle, modules));
+        panel.appendChild(self._foot(modules));
+
+        function toggleFloat(open) {
+          var willOpen = (open !== undefined) ? open : panel.hasAttribute('hidden');
+          if (willOpen) {
+            panel.removeAttribute('hidden');
+            btn.setAttribute('aria-expanded', 'true');
+            lsSet('floating-open', true);
+            closeBtn.focus();
+          } else {
+            panel.setAttribute('hidden', '');
+            btn.setAttribute('aria-expanded', 'false');
+            lsSet('floating-open', false);
+            btn.focus();
+          }
+        }
+
+        btn.addEventListener('click', function () { toggleFloat(); });
+        closeBtn.addEventListener('click', function () { toggleFloat(false); });
+
+        panel.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' || e.keyCode === 27) {
+            toggleFloat(false);
+          }
+        });
+
+        wrap.appendChild(panel);
+        wrap.appendChild(btn);
+        this._root.appendChild(wrap);
+
+        this._ticker = setInterval(function () { self._tick(); }, 60000);
+        this._tick();
+        return;
+      }
+
+      // 2. Tryby Sidebar, Aggregator oraz Single
+      var isSidebar = mode === 'sidebar';
+      this._root.className = 'wrap' + (isSidebar ? ' mode-sidebar' + (this.hasAttribute('sticky') ? ' is-sticky' : '') : '');
+
+      var row = el('div', 'row');
+      if (mode === 'aggregator') {
+        row.setAttribute('role', 'region');
+        row.setAttribute('aria-label', 'Prognoza pogody dla wybranych miast');
+        row.setAttribute('tabindex', '0');
+      }
+      var any = false;
+
+      results.forEach(function (res) {
+        if (res.status !== 'fulfilled' || !res.value) {
+          var e = el('div', 'card' + (isSidebar ? ' card-sidebar' : ''));
+          e.appendChild(el('p', 'err', 'Pogoda chwilowo niedostępna'));
+          row.appendChild(e); return;
+        }
+        any = true;
+        var cardEl = self._card(res.value, modules);
+        if (isSidebar) cardEl.classList.add('card-sidebar');
+        row.appendChild(cardEl);
+      });
+
+      this._root.appendChild(row);
+      this._root.appendChild(this._foot(modules));
 
       if (any) {
         this._ticker = setInterval(function () { self._tick(); }, 60000);

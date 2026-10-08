@@ -56,25 +56,53 @@ Skopiuj pliki z katalogu `dist/` do katalogu dostępnego dla PHP na serwerze:
 
 Upewnij się, że katalog `../var/cache` ma uprawnienia do zapisu dla procesu serwera webowego (`chmod 775 var/cache`).
 
-### 2. Osadzenie Widgetu na Stronie
+### 2. Tryby Osadzenia Widgetu (Tabela i Atrybuty)
+
+Komponent `<mo-weather>` obsługuje cztery tryby renderowania (`mode`):
+
+| Tryb (`mode`) | Przeznaczenie | Kluczowe cechy | Obsługiwane atrybuty |
+|---|---|---|---|
+| `single` *(domyślny)* | Standardowa karta inline w treści lub sekcji portalu | Skalowalny kontener, modułowy układ, zero CLS | `city-id`, `modules`, `api-url` |
+| `sidebar` | Wąska kolumna boczna portalu (układ typu slazag.pl) | Max-width 320 px, scroll-snap prognozy 7 dni, opcjonalny sticky | `city-id`, `modules`, `api-url`, `sticky` |
+| `floating` | Pływający bubble launchera w rogu ekranu (cały portal) | Fixed 56 px bubble, modal dialog 360 px, zapamiętanie stanu w `localStorage`, zero CLS, a11y (Esc, aria-expanded) | `city-id`, `modules`, `api-url`, `position` |
+| `aggregator` | Pozioma karuzela wielu miast | Scroll-snap karuzela miast, touch-friendly, wskaźniki scrolla | `cities`, `modules`, `api-url` |
+
+#### Atrybuty Komponentu
+
+- `mode`: `"single"` (domyślny), `"sidebar"`, `"floating"`, `"aggregator"`.
+- `city-id`: identyfikator miasta (np. `"katowice"`, `"gliwice"`, `"bytom"` z `src/cities.php`).
+- `cities`: lista miast rozdzielona przecinkami dla trybu `aggregator` (np. `"katowice,gliwice,sosnowiec"`).
+- `modules`: lista modułów (`current`, `air`, `daily7`, `nowcast`). Domyślnie `current`.
+- `api-url`: adres URL endpointu proxy (np. `"/api/weather"` lub `"https://twojadomena.pl/api/weather"`).
+- `sticky`: (tylko `mode="sidebar"`) przykleja widget przy przewijaniu strony (`position: sticky; top: 12px`).
+- `position`: (tylko `mode="floating"`) pozycja bąbelka — `"bottom-right"` (domyślna) lub `"bottom-left"`.
+
+#### Przykłady Użycia
 
 ```html
-<!-- Skrypt widgetu (CDN lub lokalny) -->
-<script src="https://cdn.twojadomena.pl/weather-widget.min.js?v=2.0.0" defer></script>
+<!-- Wczytanie skryptu widgetu (defer, zero zależności) -->
+<script src="/assets/weather-widget.min.js?v=2.1.0" defer></script>
 
-<!-- Wariant 1: Bieżąca pogoda (zgodność wsteczna z v1.0.1) -->
-<mo-weather mode="single" city-id="katowice" api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
-
-<!-- Wariant 2: Wszystkie moduły (pogoda, jakość powietrza, 7 dni, alert opadów) -->
+<!-- 1. Inline (karta w treści strony) -->
 <mo-weather mode="single" city-id="katowice"
             modules="current,air,daily7,nowcast"
-            api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
+            api-url="/api/weather"></mo-weather>
 
-<!-- Wariant 3: Karuzela agregatora wielu miast -->
+<!-- 2. Sidebar (kolumna boczna portalu z opcją sticky) -->
+<mo-weather mode="sidebar" city-id="katowice" sticky
+            modules="current,air,daily7,nowcast"
+            api-url="/api/weather"></mo-weather>
+
+<!-- 3. Floating Bubble (pływający przycisk w prawym dolnym rogu) -->
+<mo-weather mode="floating" city-id="katowice" position="bottom-right"
+            modules="current,air,daily7,nowcast"
+            api-url="/api/weather"></mo-weather>
+
+<!-- 4. Aggregator (przegląd wielu miast aglomeracji) -->
 <mo-weather mode="aggregator"
             cities="katowice,gliwice,sosnowiec,bytom,zabrze"
             modules="current,air"
-            api-url="https://api.twojadomena.pl/weather-api.php"></mo-weather>
+            api-url="/api/weather"></mo-weather>
 ```
 
 ---

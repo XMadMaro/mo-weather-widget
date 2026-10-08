@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-08
+
+### Added
+- **Tryby osadzenia widgetu (`mode="sidebar"` i `mode="floating"`)**:
+  - `mode="sidebar"`: kompaktowy układ pionowy (max-width: 320 px) zoptymalizowany dla kolumny bocznej portali (np. slazag.pl), scroll-snap prognozy 7 dni i opcjonalny atrybut `sticky` (`position: sticky; top: 12px`).
+  - `mode="floating"`: pływający przycisk (bubble 56 px) w rogu ekranu (`position="bottom-right"` lub `"bottom-left"`), rozwijający pełny modal 360 px, zapamiętujący stan w `localStorage` (`mo-weather:v2:floating-open`), pełne wsparcie a11y (`role="dialog"`, `aria-controls`, `aria-expanded`, zamknięcie klawiszem `Esc` z przywróceniem fokusu na przycisk) oraz zerowy CLS.
+  - Kompatybilność wsteczna: brak atrybutu `mode` lub `mode="single"` zachowuje dotychczasowy układ inline.
+- **Makieta portalu w stylu slazag.pl w `public/index.html`**:
+  - Wierna makieta układu portalu regionalnego (ciemny nagłówek z żółtym akcentem, nawigacja, leady artykułów, sidebar 300 px) z żywym komponentem `<mo-weather>`.
+  - Dynamiczny przełącznik trybów nad makietą (`Sidebar` / `Inline` / `Floating`) natychmiastowo przełączający tryb widgetu.
+- **Generator kodu osadzenia**:
+  - Interaktywny konfigurator z wyborem trybu (`Inline`, `Sidebar`, `Floating`), miasta (14 miast z `src/cities.php`) oraz bazowego adresu API (autouzupełniany z `location.origin`).
+  - Jednoklikowe kopiowanie snippetu do schowka (`navigator.clipboard` z fallbackiem).
+- **Konteneryzacja i konfiguracja Railway**:
+  - Dedykowany `Dockerfile` oparty o `php:8.2-cli` uruchamiający wbudowany serwer `php -S 0.0.0.0:$PORT -t public router.php` bez konieczności instalowania Node/Composer w środowisku produkcyjnym.
+  - Zaktualizowano `railway.json` do buildera `DOCKERFILE`.
+- **Dokumentacja i testy**:
+  - Rozszerzono `docs/INTEGRATION.md` o sekcję 7 ze szczegółowym przewodnikiem wdrożenia w Craft CMS / Twig na portalu slazag.pl (skrypt na własnej domenie, zero CORS).
+  - Dodano testy jednostkowe 16, 17, 18 w `tests/widget.test.js` pokrywające `mode="sidebar"`, `mode="floating"` i kompatybilność wsteczną.
+
 ## [2.0.0] - 2026-10-07
 
 ### Added

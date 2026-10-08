@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MO Weather Widget — Demo dla Media Operator</title>
-<meta name="description" content="Lekki widget pogodowy Web Component z jakością powietrza GIOŚ/IOŚ-PIB i prognozą MET Norway dla 12 portali Media Operator.">
+<title>MO Weather Widget v2.1 — Demo dla Media Operator (slazag.pl)</title>
+<meta name="description" content="Autorski widget pogodowy Web Component z jakością powietrza GIOŚ/IOŚ-PIB i prognozą MET Norway dla 12 portali grupy Media Operator.">
 <style>
   :root {
     --bg-page: #f8fafc;
@@ -14,7 +14,8 @@
     --card-border: #e2e8f0;
     --primary: #0284c7;
     --primary-dark: #0369a1;
-    --accent: #10b981;
+    --slazag-black: #111111;
+    --slazag-yellow: #f59e0b;
     --radius: 12px;
   }
 
@@ -25,18 +26,18 @@
     background-color: var(--bg-page);
     color: var(--text-main);
     line-height: 1.5;
-    padding-bottom: 48px;
+    padding-bottom: 60px;
   }
 
-  header {
+  header.demo-header {
     background: #0f172a;
     color: #f8fafc;
     padding: 36px 20px;
-    border-bottom: 3px solid var(--primary);
+    border-bottom: 3px solid var(--slazag-yellow);
   }
 
   .container {
-    max-width: 980px;
+    max-width: 1040px;
     margin: 0 auto;
     padding: 0 16px;
   }
@@ -47,8 +48,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .08em;
-    background: rgba(2, 132, 199, 0.2);
-    color: #38bdf8;
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
     padding: 4px 10px;
     border-radius: 999px;
     margin-bottom: 12px;
@@ -65,13 +66,13 @@
   .subtitle {
     font-size: 15px;
     color: #94a3b8;
-    max-width: 720px;
+    max-width: 760px;
   }
 
   main {
-    margin-top: 32px;
+    margin-top: 36px;
     display: grid;
-    gap: 32px;
+    gap: 36px;
   }
 
   .demo-section {
@@ -88,13 +89,13 @@
     align-items: flex-start;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
     padding-bottom: 12px;
     border-bottom: 1px solid #f1f5f9;
   }
 
   h2 {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-main);
   }
@@ -105,6 +106,236 @@
     margin-top: 4px;
   }
 
+  /* 3 Tryby osadzenia - grid */
+  .modes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 12px;
+  }
+
+  .mode-box {
+    background: #f8fafc;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mode-box h3 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mode-box p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    flex: 0 0 auto;
+  }
+
+  /* Makieta Portalu Slazag */
+  .portal-mock {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  .portal-topbar {
+    background: var(--slazag-black);
+    color: #ffffff;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .portal-logo {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: .06em;
+    color: #ffffff;
+    text-transform: uppercase;
+  }
+
+  .portal-logo span {
+    color: var(--slazag-yellow);
+  }
+
+  .portal-tag {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .portal-nav {
+    background: #1e293b;
+    padding: 8px 20px;
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+    overflow-x: auto;
+  }
+
+  .portal-nav span { cursor: pointer; white-space: nowrap; }
+  .portal-nav span:hover, .portal-nav span.active { color: var(--slazag-yellow); }
+
+  .portal-body {
+    display: grid;
+    grid-template-columns: 1fr 310px;
+    gap: 24px;
+    padding: 24px 20px;
+    background: #fdfdfd;
+  }
+
+  .portal-articles {
+    display: grid;
+    gap: 16px;
+  }
+
+  .portal-lead-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 18px;
+  }
+
+  .portal-lead-tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+
+  .portal-lead-card h4 {
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.3;
+    margin-bottom: 6px;
+    color: #0f172a;
+  }
+
+  .portal-lead-card p {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .portal-sidebar-slot {
+    width: 310px;
+  }
+
+  .mode-switch-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .switch-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: #ffffff;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+
+  .switch-btn.active {
+    background: var(--slazag-black);
+    color: #ffffff;
+    border-color: var(--slazag-black);
+  }
+
+  .mock-notice {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 12px;
+    font-style: italic;
+  }
+
+  /* Generator Kodu */
+  .gen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .gen-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 4px;
+  }
+
+  .gen-field select, .gen-field input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--text-main);
+  }
+
+  .snippet-wrap {
+    position: relative;
+    margin-top: 12px;
+  }
+
+  .snippet-text {
+    width: 100%;
+    height: 90px;
+    background: #0f172a;
+    color: #38bdf8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #1e293b;
+    resize: none;
+    box-sizing: border-box;
+  }
+
+  .copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: var(--slazag-yellow);
+    color: #0f172a;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+
+  .copy-btn:hover { background: #d97706; }
+
+  /* Przyciski wyboru miasta w demo */
   .city-selector {
     display: flex;
     gap: 8px;
@@ -121,11 +352,6 @@
     background: #f8fafc;
     color: var(--text-main);
     cursor: pointer;
-    transition: all .15s ease;
-  }
-
-  .city-btn:hover {
-    background: #e2e8f0;
   }
 
   .city-btn.active {
@@ -134,57 +360,9 @@
     border-color: #0f172a;
   }
 
-  /* Sekcja motywu ciemnego */
-  .dark-card {
-    background: #090a0f;
-    border-radius: var(--radius);
-    padding: 20px;
-    --mo-card: #17181c;
-    --mo-text: #f4f4f5;
-    --mo-muted: #9ca3af;
-    --mo-border: #2b2d33;
-    --mo-accent: #6ab0ff;
-    --mo-bg-sub: #24262d;
-    --mo-foot: #9ca3af;
-    --mo-stale-bg: #2e2612;
-    --mo-stale-text: #ffe082;
-    --mo-stale-border: #4d3a17;
-    --mo-nowcast-active-bg: #142a42;
-    --mo-nowcast-active-text: #90caf9;
-    --mo-nowcast-active-border: #1e3a5f;
-    --mo-aqi1-bg: #13381e; --mo-aqi1-text: #a3e9b6;
-    --mo-aqi2-bg: #163d22; --mo-aqi2-text: #b7e4c7;
-    --mo-aqi3-bg: #3d3012; --mo-aqi3-text: #ffe082;
-    --mo-aqi4-bg: #3e2415; --mo-aqi4-text: #ffcc80;
-    --mo-aqi5-bg: #421818; --mo-aqi5-text: #ef9a9a;
-    --mo-aqi6-bg: #2e1642; --mo-aqi6-text: #ce93d8;
-    --mo-aqi0-bg: #24262d; --mo-aqi0-text: #9ca3af;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-  }
-
-  .feature-item {
-    background: #f8fafc;
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-size: 13px;
-  }
-
-  .feature-item strong {
-    display: block;
-    color: var(--text-main);
-    margin-bottom: 2px;
-  }
-
-  footer {
-    max-width: 980px;
-    margin: 40px auto 0;
+  footer.demo-footer {
+    max-width: 1040px;
+    margin: 48px auto 0;
     padding: 24px 16px 0;
     border-top: 1px solid var(--card-border);
     font-size: 12px;
@@ -195,64 +373,204 @@
     gap: 12px;
   }
 
-  footer a {
+  footer.demo-footer a {
     color: var(--primary);
     text-decoration: underline;
   }
 
-  @media (max-width: 640px) {
-    header { padding: 24px 16px; }
-    h1 { font-size: 20px; }
-    .demo-section { padding: 16px; }
+  @media (max-width: 860px) {
+    .portal-body { grid-template-columns: 1fr; }
+    .portal-sidebar-slot { width: 100%; }
   }
 </style>
 <script src="/assets/weather-widget.min.js" defer></script>
 </head>
 <body>
 
-<header>
+<header class="demo-header">
   <div class="container">
-    <span class="badge">Wersja produkcyjna 2.0.0</span>
+    <span class="badge">Wersja produkcyjna 2.1.0</span>
     <h1>MO Weather Widget — demo dla Media Operator</h1>
-    <p class="subtitle">Autorski, lekki Web Component (Shadow DOM) dla 12 portali regionalnych. Dane z MET Norway (CC BY 4.0), GIOŚ oraz IOŚ-PIB. Zero zewnętrznych bibliotek, 100% legalny komercyjnie.</p>
+    <p class="subtitle">Autorski Web Component pogody i jakości powietrza (GIOŚ / IOŚ-PIB / MET Norway CC BY 4.0) dla 12 portali regionalnych. Trzy tryby osadzenia: Inline, Sidebar oraz Floating.</p>
   </div>
 </header>
 
 <div class="container">
   <main>
-    <!-- Sekcja 1: Tryb pojedynczego miasta (Single) z interaktywnym wyborem -->
+
+    <!-- SEKCJA 1: Trzy tryby osadzenia obok siebie -->
     <section class="demo-section">
       <div class="section-header">
         <div>
-          <h2>1. Tryb pojedynczy (Single City)</h2>
-          <p class="section-desc">Kompletny pakiet 4 modułów: pogoda bieżąca, powietrze GIOŚ/IOŚ, prognoza 7 dni oraz alert nowcast.</p>
+          <h2>1. Trzy tryby osadzenia widgetu</h2>
+          <p class="section-desc">Jeden uniwersalny Web Component — trzy elastyczne warianty prezentacji w szablonach Craft CMS / WordPress.</p>
         </div>
       </div>
 
-      <div class="city-selector">
-        <button class="city-btn active" data-city="katowice">Katowice (GIOŚ PM2,5+10)</button>
-        <button class="city-btn" data-city="gliwice">Gliwice (GIOŚ PM10)</button>
-        <button class="city-btn" data-city="sosnowiec">Sosnowiec (GIOŚ)</button>
-        <button class="city-btn" data-city="bytom">Bytom (IOŚ-PIB)</button>
-        <button class="city-btn" data-city="tarnowskie-gory">Tarnowskie Góry (Powiat)</button>
-        <button class="city-btn" data-city="tychy">Tychy (GIOŚ)</button>
-      </div>
+      <div class="modes-grid">
+        <div class="mode-box">
+          <h3>📌 Tryb Inline (standard)</h3>
+          <p>Klasyczna karta z pełną szerokością. Idealna pod artykułem lub na stronie głównej w sekcji pogody.</p>
+          <div style="flex: 1 0 auto;">
+            <mo-weather mode="single" city-id="katowice" api-url="/api/weather" modules="current,air"></mo-weather>
+          </div>
+        </div>
 
-      <div id="single-slot" style="max-width: 520px;">
-        <mo-weather id="widget-single"
-                    mode="single"
-                    city-id="katowice"
-                    api-url="/api/weather"
-                    modules="current,air,daily7,nowcast"></mo-weather>
+        <div class="mode-box">
+          <h3>📰 Tryb Sidebar (kolumna)</h3>
+          <p>Kompaktowy pion (szerokość do 320 px) ze scroll-snapem na 7 dni. Zoptymalizowany pod kolumny boczne artykułów.</p>
+          <div style="flex: 1 0 auto; max-width: 320px;">
+            <mo-weather mode="sidebar" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast"></mo-weather>
+          </div>
+        </div>
+
+        <div class="mode-box">
+          <h3>🎈 Tryb Floating (pływający bubble)</h3>
+          <p>Dyskretny przycisk (56 px) w rogu ekranu. Po kliknięciu rozwija pełny panel pogodowy a11y z obsługą klawisza Esc.</p>
+          <div style="flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; background: #ffffff; border-radius: 8px; border: 1px dashed #cbd5e1; padding: 16px; text-align: center;">
+            <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">Aktywuj pływający bubble w prawym dolnym rogu tej strony:</p>
+            <button id="btn-toggle-float-demo" class="switch-btn active" type="button">Włącz pływający bubble</button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- Sekcja 2: Tryb agregatora (Multi-City Carousel) -->
+    <!-- SEKCJA 2: Makieta portalu (układ typu slazag.pl) -->
     <section class="demo-section">
       <div class="section-header">
         <div>
-          <h2>2. Tryb agregatora miast (Aggregator Carousel)</h2>
-          <p class="section-desc">Pozioma karuzela dostępna z klawiatury (tabindex, ARIA region) dla sekcji regionalnych portali.</p>
+          <h2>2. Makieta portalu regionalnego (układ typu ŚLĄZAG)</h2>
+          <p class="section-desc">Zobacz, jak widget integruje się z żywym układem redakcyjnym portalu informacyjnego.</p>
+        </div>
+        <div class="mode-switch-bar">
+          <span style="font-size: 12px; font-weight: 600; color: #64748b;">Tryb widgetu w makiecie:</span>
+          <button class="switch-btn active" data-portal-mode="sidebar" type="button">Sidebar (300px)</button>
+          <button class="switch-btn" data-portal-mode="single" type="button">Inline (pełna karta)</button>
+          <button class="switch-btn" data-portal-mode="floating" type="button">Floating (bubble)</button>
+        </div>
+      </div>
+
+      <!-- Ramka portalu ŚLĄZAG -->
+      <div class="portal-mock">
+        <div class="portal-topbar">
+          <div class="portal-logo">ŚLĄZAG<span>.PL</span></div>
+          <div class="portal-tag">Makieta demonstracyjna układu portalu</div>
+        </div>
+        <div class="portal-nav">
+          <span class="active">Wiadomości</span>
+          <span>Katowice i Metropolia</span>
+          <span>Biznes</span>
+          <span>Kultura</span>
+          <span>Śląsk i Zagłębie</span>
+          <span>Sport</span>
+          <span>Pogoda</span>
+        </div>
+
+        <div class="portal-body">
+          <!-- Kolumna główna z artykułami -->
+          <div class="portal-articles">
+            <article class="portal-lead-card">
+              <div class="portal-lead-tag">Metropolia GZM · Inwestycje</div>
+              <h4>Wielka przebudowa węzła drogowego w aglomeracji: finał prac przed terminem</h4>
+              <p>Drogowcy zakończyli kluczowy etap modernizacji głównego ciągu komunikacyjnego łączącego Katowice z Chorzowem i Gliwicami. Od poniedziałku kierowcy pojadą nową estakadą bez utrudnień.</p>
+            </article>
+
+            <article class="portal-lead-card">
+              <div class="portal-lead-tag">Gospodarka i Region</div>
+              <h4>Nowe inwestycje wodorowe na Górnym Śląsku: podpisano kluczowe porozumienie</h4>
+              <p>Śląskie konsorcjum energetyczne uruchamia pilotażową instalację magazynowania energii opartej na zielonym wodorze. Projekt zapewni nowe miejsca pracy dla inżynierów z regionu.</p>
+            </article>
+
+            <article class="portal-lead-card">
+              <div class="portal-lead-tag">Turystyka i Dziedzictwo</div>
+              <h4>Szlak Zabytków Techniki przyciąga rekordową liczbę odwiedzających</h4>
+              <p>Ponad 250 tysięcy turystów odwiedziło poprzemysłowe obiekty w Zabrzu, Tarnowskich Górach i Bytomiu w minionym kwartale, potwierdzając rosnącą popularność turystyki industrialnej.</p>
+            </article>
+          </div>
+
+          <!-- Prawy sidebar z żywym widgetem pogodowym -->
+          <div class="portal-sidebar-slot">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; letter-spacing: .06em;">
+              Pogoda w Twoim mieście
+            </div>
+            <div id="portal-widget-container">
+              <mo-weather id="mock-portal-weather"
+                          mode="sidebar"
+                          city-id="katowice"
+                          api-url="/api/weather"
+                          modules="current,air,daily7,nowcast"></mo-weather>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="mock-notice">
+        ℹ️ Makieta poglądowa. Realne osadzenie na portalu slazag.pl wymaga wklejenia zaledwie 2 linijek kodu w szablonie Twig/Craft CMS.
+      </p>
+    </section>
+
+    <!-- SEKCJA 3: Generator kodu instalacyjnego -->
+    <section class="demo-section">
+      <div class="section-header">
+        <div>
+          <h2>3. Generator kodu osadzenia (dla webmastera portalu)</h2>
+          <p class="section-desc">Wybierz parametry, skopiuj 2 linijki kodu i wklej w dowolne miejsce szablonu strony.</p>
+        </div>
+      </div>
+
+      <div class="gen-grid">
+        <div class="gen-field">
+          <label for="gen-mode">Tryb osadzenia (mode):</label>
+          <select id="gen-mode">
+            <option value="sidebar" selected>sidebar (kolumna boczna do 320px)</option>
+            <option value="floating">floating (pływający bubble w rogu)</option>
+            <option value="single">single (pełna karta inline)</option>
+            <option value="aggregator">aggregator (karuzela wielu miast)</option>
+          </select>
+        </div>
+
+        <div class="gen-field">
+          <label for="gen-city">Miasto portalu (14 miast MO):</label>
+          <select id="gen-city">
+            <option value="katowice" selected>Katowice (slazag.pl / 24kato.pl)</option>
+            <option value="gliwice">Gliwice (glivice.pl)</option>
+            <option value="sosnowiec">Sosnowiec (24zaglebie.pl)</option>
+            <option value="bytom">Bytom (bytomski.pl)</option>
+            <option value="zabrze">Zabrze (zabrze-news.pl)</option>
+            <option value="tychy">Tychy (nowinytyskie.pl)</option>
+            <option value="dabrowa-gornicza">Dąbrowa Górnicza (24zaglebie.pl)</option>
+            <option value="chorzow">Chorzów (chorzowski.pl)</option>
+            <option value="swietochlowice">Świętochłowice (ngs24.pl)</option>
+            <option value="ruda-slaska">Ruda Śląska (rudzianin.pl)</option>
+            <option value="piekary-slaskie">Piekary Śląskie (piekary.info)</option>
+            <option value="tarnowskie-gory">Tarnowskie Góry (tarnowskiegory.info)</option>
+            <option value="knurow">Knurów (glivice.pl)</option>
+            <option value="bedzin">Będzin (24zaglebie.pl)</option>
+          </select>
+        </div>
+
+        <div class="gen-field">
+          <label for="gen-modules">Moduły (modules):</label>
+          <select id="gen-modules">
+            <option value="current,air,daily7,nowcast" selected>Pełny pakiet (pogoda, powietrze, 7 dni, alert)</option>
+            <option value="current,air">Kompakt (bieżąca pogoda + jakość powietrza)</option>
+            <option value="current">Tylko pogoda bieżąca (minimalny)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="snippet-wrap">
+        <textarea id="gen-snippet" class="snippet-text" readonly></textarea>
+        <button id="btn-copy" class="copy-btn" type="button">Kopiuj kod</button>
+      </div>
+    </section>
+
+    <!-- SEKCJA 4: Karuzela agregatora wielu miast -->
+    <section class="demo-section">
+      <div class="section-header">
+        <div>
+          <h2>4. Tryb agregatora miast (karuzela regionalna)</h2>
+          <p class="section-desc">Klawiaturowy region ARIA (tabindex="0") z obsługą przewijania dla stron głównych portali.</p>
         </div>
       </div>
 
@@ -262,70 +580,109 @@
                   modules="current,air"></mo-weather>
     </section>
 
-    <!-- Sekcja 3: Theming CSS Variables (Motyw ciemny / Dark Mode) -->
-    <section class="demo-section">
-      <div class="section-header">
-        <div>
-          <h2>3. Tryb ciemny — pełna zgodność WCAG AAA</h2>
-          <p class="section-desc">Prezentacja integracji ze stylami portalu przez zmienne CSS (--mo-card, --mo-text, --mo-accent itp.).</p>
-        </div>
-      </div>
-
-      <div class="dark-card" style="max-width: 520px;">
-        <mo-weather mode="single"
-                    city-id="katowice"
-                    api-url="/api/weather"
-                    modules="current,air,daily7,nowcast"></mo-weather>
-      </div>
-    </section>
-
-    <!-- Sekcja 4: Kluczowe atuty techniczne dla zarządu / wydawcy -->
-    <section class="demo-section">
-      <h2>Architektura i bezpieczeństwo</h2>
-      <div class="features-grid">
-        <div class="feature-item">
-          <strong>100% Legalność komercyjna</strong>
-          MET Norway (CC BY 4.0) zastępuje darmowy plan Open-Meteo, chroniąc 12 portali przed roszczeniami licencyjnymi.
-        </div>
-        <div class="feature-item">
-          <strong>Ochrona prywatności & RODO</strong>
-          Zero zapytań z przeglądarki użytkownika do zewnętrznych API. Całość idzie przez proxy PHP z cache'owaniem.
-        </div>
-        <div class="feature-item">
-          <strong>Dostępność cyfrowa WCAG 2.1</strong>
-          Natywny Shadow DOM, aria-live dla alertu deszczu, pełna nawigacja klawiaturą i wysoki kontrast &gt; 7:1.
-        </div>
-        <div class="feature-item">
-          <strong>Optymalizacja CLS (0.0)</strong>
-          Sztywna rezerwacja wysokości szkieletora (170px) eliminuje skoki layoutu artykułów podczas ładowania.
-        </div>
-      </div>
-    </section>
   </main>
 </div>
 
-<footer>
+<footer class="demo-footer">
   <div>
     <strong>Źródła danych:</strong> MET Norway locationforecast 2.0 (CC BY 4.0) · Główny Inspektorat Ochrony Środowiska (GIOŚ) · Instytut Ochrony Środowiska (IOŚ-PIB).
   </div>
   <div>
-    Wdrożenie dla Media Operator · 2026-10 · <a href="/api/weather?city=katowice&type=health" target="_blank">Status API (/api/weather?type=health)</a>
+    Wdrożenie dla Media Operator · 2026-10 · Demo hostowane na Railway · <a href="/api/weather?city=katowice&type=health" target="_blank">Health Status</a>
   </div>
 </footer>
 
+<!-- Pływająca instancja widgetu (zarządzana przyciskiem) -->
+<div id="floating-instance-container"></div>
+
 <script>
-  // Obsługa przełączania miast w sekcji demonstracyjnej
-  document.querySelectorAll('.city-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.city-btn').forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      var city = btn.getAttribute('data-city');
-      var widget = document.getElementById('widget-single');
-      if (widget) {
-        widget.setAttribute('city-id', city);
+  (function () {
+    // 1. Dynamiczny generator kodu
+    var selMode = document.getElementById('gen-mode');
+    var selCity = document.getElementById('gen-city');
+    var selModules = document.getElementById('gen-modules');
+    var txtSnippet = document.getElementById('gen-snippet');
+    var btnCopy = document.getElementById('btn-copy');
+
+    function updateSnippet() {
+      var m = selMode.value;
+      var c = selCity.value;
+      var mods = selModules.value;
+      var api = (location.origin ? location.origin : 'https://api.mediaoperator.pl') + '/api/weather';
+      var scriptUrl = (location.origin ? location.origin : 'https://api.mediaoperator.pl') + '/assets/weather-widget.min.js';
+
+      var html = '<script src="' + scriptUrl + '" defer><\/script>\n';
+      if (m === 'aggregator') {
+        html += '<mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+      } else if (m === 'floating') {
+        html += '<mo-weather mode="floating" city-id="' + c + '" position="bottom-right" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+      } else {
+        html += '<mo-weather mode="' + m + '" city-id="' + c + '" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+      }
+      txtSnippet.value = html;
+    }
+
+    selMode.addEventListener('change', updateSnippet);
+    selCity.addEventListener('change', updateSnippet);
+    selModules.addEventListener('change', updateSnippet);
+    updateSnippet();
+
+    btnCopy.addEventListener('click', function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txtSnippet.value).then(showCopied);
+      } else {
+        txtSnippet.select();
+        document.execCommand('copy');
+        showCopied();
       }
     });
-  });
+
+    function showCopied() {
+      var prev = btnCopy.textContent;
+      btnCopy.textContent = 'Skopiowano! ✓';
+      btnCopy.style.background = '#10b981';
+      setTimeout(function () {
+        btnCopy.textContent = prev;
+        btnCopy.style.background = '';
+      }, 2000);
+    }
+
+    // 2. Przełącznik trybów w makiecie portalu ŚLĄZAG
+    var mockWidget = document.getElementById('mock-portal-weather');
+    document.querySelectorAll('.switch-btn[data-portal-mode]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.switch-btn[data-portal-mode]').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var targetMode = btn.getAttribute('data-portal-mode');
+        if (mockWidget) {
+          mockWidget.setAttribute('mode', targetMode);
+        }
+      });
+    });
+
+    // 3. Kontroler pływającego bubble'a
+    var floatBtn = document.getElementById('btn-toggle-float-demo');
+    var floatCont = document.getElementById('floating-instance-container');
+    var floatActive = true;
+
+    function initFloat() {
+      floatCont.innerHTML = '<mo-weather id="floating-live" mode="floating" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast"></mo-weather>';
+    }
+    initFloat();
+
+    floatBtn.addEventListener('click', function () {
+      floatActive = !floatActive;
+      if (floatActive) {
+        initFloat();
+        floatBtn.textContent = 'Wyłącz pływający bubble';
+        floatBtn.classList.add('active');
+      } else {
+        floatCont.innerHTML = '';
+        floatBtn.textContent = 'Włącz pływający bubble';
+        floatBtn.classList.remove('active');
+      }
+    });
+  })();
 </script>
 </body>
 </html>

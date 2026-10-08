@@ -58,8 +58,8 @@ assert(srcJs.includes("if (code <= 67)  return ['rain', 'Deszcz'];"), 'WMO code 
 assert(srcJs.includes("if (code <= 77)  return ['snow', 'Śnieg'];"), 'WMO code snow mapping exists');
 
 // Test 7: Minifikacja i rozmiar bundle
-console.log('  [7/15] Checking minified artifact integrity...');
-assert(distMinJs.length > 2000 && distMinJs.length < 18000, `Minified JS size within budget: ${distMinJs.length} bytes`);
+console.log('  [7/18] Checking minified artifact integrity...');
+assert(distMinJs.length > 2000 && distMinJs.length < 25000, `Minified JS size within budget: ${distMinJs.length} bytes`);
 assert(distMinJs.startsWith('/*!'), 'Minified bundle must preserve leading license comment /*!');
 
 // Test 8: P1.8 - Czyszczenie starych kluczy localStorage v1
@@ -97,10 +97,27 @@ assert(srcJs.includes("var sourceLabel = meas.label ||"), 'Air card renders sour
 assert(srcJs.includes('.air-sub{font-size:11px;color:var(--mo-muted,#666);margin:4px 0 0;}'), 'Air sublabel styling present');
 
 // Test 15: E1 DoD #5 — Europejski AQI (EEA) oraz dedykowany blok porady zdrowotnej
-console.log('  [15/15] Checking E1 DoD #5 (EEA AQI styling & health advice block)...');
+console.log('  [15/18] Checking E1 DoD #5 (EEA AQI styling & health advice block)...');
 assert(srcJs.includes('.air-advice{font-size:11px;'), 'air-advice CSS class defined for health recommendations');
 assert(srcJs.includes("var adviceBox = el('p', 'air-advice', adviceText);"), 'air-advice DOM node created with textContent');
 assert(srcJs.includes("case 1: return { bg: '#e6f4ea', text: '#137333', label: 'Bardzo dobry' };"), 'EEA AQI Level 1 color defined');
 assert(srcJs.includes("case 6: return { bg: '#f3e8fd', text: '#7627bb', label: 'Bardzo zły' };"), 'EEA AQI Level 6 color defined');
 
-console.log('✓ All Frontend Widget Unit Tests passed successfully!\n');
+// Test 16: Tryb sidebar (kompaktowy pion <= 320px + sticky)
+console.log('  [16/18] Checking mode="sidebar" styling and sticky support...');
+assert(srcJs.includes(':host([mode="sidebar"])'), 'Widget must define :host([mode="sidebar"]) style');
+assert(srcJs.includes('.card-sidebar'), 'Widget must define .card-sidebar class for compact vertical layout');
+assert(srcJs.includes(':host([mode="sidebar"][sticky])'), 'Widget must support sticky attribute for sidebar');
+
+// Test 17: Tryb floating (launcher bubble + a11y panel dialog)
+console.log('  [17/18] Checking mode="floating" launcher and a11y dialog...');
+assert(srcJs.includes("btn.setAttribute('aria-label', 'Pogoda — otwórz panel')"), 'Launcher button must have a11y aria-label');
+assert(srcJs.includes("btn.setAttribute('aria-controls', 'mo-float-panel')"), 'Launcher button must have aria-controls targeting panel');
+assert(srcJs.includes("lsGet('floating-open')"), 'Floating panel must restore state from localStorage');
+assert(srcJs.includes("e.key === 'Escape'"), 'Escape key must close floating panel and restore focus');
+
+// Test 18: Kompatybilność wsteczna - brak mode defaults to single
+console.log('  [18/18] Checking backward compatibility: mode omitted defaults to single...');
+assert(srcJs.includes("var mode = this.getAttribute('mode') || 'single';"), 'Omitted mode must default to single');
+
+console.log('✓ All Frontend Widget Unit Tests (18/18) passed successfully!\n');
