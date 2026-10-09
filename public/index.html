@@ -412,6 +412,63 @@
     .portal-body { grid-template-columns: 1fr; }
     .portal-sidebar-slot { width: 100%; }
   }
+
+  /* Pomocnicze klasy layoutu dla trybów demo oraz a11y */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .mode-slot {
+    flex: 1 0 auto;
+  }
+
+  .mode-slot-sidebar {
+    flex: 1 0 auto;
+    max-width: 320px;
+  }
+
+  .mode-float-cta {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px dashed #cbd5e1;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .mode-float-text {
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 12px;
+  }
+
+  .mode-switch-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .portal-sidebar-heading {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 8px;
+    letter-spacing: .06em;
+  }
 </style>
 <script src="/assets/weather-widget.min.js" defer></script>
 </head>
@@ -441,7 +498,7 @@
         <div class="mode-box">
           <h3>📌 Tryb Inline (standard)</h3>
           <p>Klasyczna karta z pełną szerokością. Idealna pod artykułem lub na stronie głównej w sekcji pogody.</p>
-          <div style="flex: 1 0 auto;">
+          <div class="mode-slot">
             <mo-weather mode="single" city-id="katowice" api-url="/api/weather" modules="current,air"></mo-weather>
           </div>
         </div>
@@ -449,7 +506,7 @@
         <div class="mode-box">
           <h3>📰 Tryb Sidebar (kolumna)</h3>
           <p>Kompaktowy pion (szerokość do 320 px) ze scroll-snapem na 7 dni. Zoptymalizowany pod kolumny boczne artykułów.</p>
-          <div style="flex: 1 0 auto; max-width: 320px;">
+          <div class="mode-slot-sidebar">
             <mo-weather mode="sidebar" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast"></mo-weather>
           </div>
         </div>
@@ -457,8 +514,8 @@
         <div class="mode-box">
           <h3>🎈 Tryb Floating (pływający bubble)</h3>
           <p>Dyskretny przycisk (56 px) w rogu ekranu. Po kliknięciu rozwija pełny panel pogodowy a11y z obsługą klawisza Esc.</p>
-          <div style="flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; background: #ffffff; border-radius: 8px; border: 1px dashed #cbd5e1; padding: 16px; text-align: center;">
-            <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">Aktywuj pływający bubble w prawym dolnym rogu tej strony:</p>
+          <div class="mode-float-cta">
+            <p class="mode-float-text">Aktywuj pływający bubble w prawym dolnym rogu tej strony:</p>
             <button id="btn-toggle-float-demo" class="switch-btn active" type="button">Włącz pływający bubble</button>
           </div>
         </div>
@@ -473,7 +530,7 @@
           <p class="section-desc">Zobacz, jak widget integruje się z żywym układem redakcyjnym portalu informacyjnego.</p>
         </div>
         <div class="mode-switch-bar">
-          <span style="font-size: 12px; font-weight: 600; color: #64748b;">Tryb widgetu w makiecie:</span>
+          <span class="mode-switch-title">Tryb widgetu w makiecie:</span>
           <button class="switch-btn active" data-portal-mode="sidebar" type="button">Sidebar (300px)</button>
           <button class="switch-btn" data-portal-mode="single" type="button">Inline (pełna karta)</button>
           <button class="switch-btn" data-portal-mode="floating" type="button">Floating (bubble)</button>
@@ -526,7 +583,7 @@
 
           <!-- Prawy sidebar z żywym widgetem pogodowym -->
           <div class="portal-sidebar-slot">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; letter-spacing: .06em;">
+            <div class="portal-sidebar-heading">
               Pogoda w Twoim mieście
             </div>
             <div id="portal-widget-container">
@@ -596,7 +653,8 @@
       </div>
 
       <div class="snippet-wrap">
-        <textarea id="gen-snippet" class="snippet-text" readonly></textarea>
+        <label for="gen-snippet" class="sr-only">Wygenerowany kod do osadzenia widgetu</label>
+        <textarea id="gen-snippet" class="snippet-text" readonly title="Wygenerowany kod do osadzenia widgetu" placeholder="Wybierz opcje powyżej, aby wygenerować kod osadzenia..."></textarea>
         <button id="btn-copy" class="copy-btn" type="button">Kopiuj kod</button>
       </div>
     </section>
