@@ -1,0 +1,53 @@
+name: Radar PoC
+
+# Jednorazowy PoC radaru: sprawdza źródła danych i obraz php:8.2-cli + gdal-bin.
+# Wyniki commituje do docs/radar-poc na tej samej gałęzi.
+on:
+  push:
+    branches: [ 'arena/8a9721bd-mo-weather-widget' ]
+    paths: [ '.github/workflows/radar-poc.yml', 'scripts/radar-poc/**' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: radar-poc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  poc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OUT: docs/radar-poc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GDAL (host)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends gdal-bin python3-gdal python3-numpy libtiff-tools
+          gdalinfo --version
+
+      - name: Analyze sources (OPERA, EUMETView, MET Norway, IMGW)
+        run: python3 scripts/radar-poc/analyze.py "$OUT"
+
+      - name: Production-like image (php:8.2-cli + gdal-bin) + PHP worker
+        if: always()
+        run: bash scripts/radar-poc/docker-check.sh "$OUT"
+
+      - name: Commit results to this branch
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A "$OUT"
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -q -m "chore(radar-poc): wyniki PoC $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME" && break
+            sleep 5
+          done
