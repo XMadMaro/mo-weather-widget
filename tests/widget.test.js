@@ -120,4 +120,36 @@ assert(srcJs.includes("e.key === 'Escape'"), 'Escape key must close floating pan
 console.log('  [18/18] Checking backward compatibility: mode omitted defaults to single...');
 assert(srcJs.includes("var mode = this.getAttribute('mode') || 'single';"), 'Omitted mode must default to single');
 
-console.log('✓ All Frontend Widget Unit Tests (18/18) passed successfully!\n');
+// Test 19: Radar burzowy — przycisk tylko z atrybutem radar (feature flag per szablon)
+console.log('  [19/22] Checking radar button is opt-in (radar attribute)...');
+assert(srcJs.includes("'radar', 'radar-url', 'radar-src'"), 'radar attributes must be observed');
+assert(srcJs.includes("if (this.hasAttribute('radar')) card.appendChild(this._radarButton("), 'radar button only when the radar attribute is set');
+assert(srcJs.includes("b.setAttribute('aria-haspopup', 'dialog');"), 'radar button announces a dialog');
+assert(srcJs.includes(':host([radar]:not([mode="floating"])) .skel{height:204px;}'), 'skeleton grows with the radar button (CLS = 0)');
+
+// Test 20: Radar ładowany leniwie — główny bundle nie zawiera mapy ani okna radaru
+console.log('  [20/22] Checking radar module is lazy-loaded...');
+assert(!distMinJs.includes('MO_RADAR_BASEMAP') && !distMinJs.includes('EUMETNET'), 'main bundle must not include the radar module');
+assert(srcJs.includes("var sc = document.createElement('script');"), 'radar module is injected as a classic script on click');
+assert(srcJs.includes("'mo-radar.min.js' : 'mo-radar.js'"), 'radar module URL derived from the widget script URL');
+
+// Test 21: dist/mo-radar.min.js — budżet i nagłówek
+console.log('  [21/22] Checking mo-radar.min.js artifact...');
+const radarMinPath = path.resolve(__dirname, '../dist/mo-radar.min.js');
+const radarMin = fs.readFileSync(radarMinPath, 'utf8');
+const radarBytes = fs.statSync(radarMinPath).size;
+assert(radarBytes > 20000 && radarBytes <= 60 * 1024, `mo-radar.min.js size within budget (<= 60 KB): ${radarBytes} bytes`);
+assert(radarMin.startsWith('/*!'), 'mo-radar.min.js must start with a license comment /*!');
+assert(radarMin.includes('window.MoWeatherRadar='), 'mo-radar.min.js must define window.MoWeatherRadar');
+assert(radarMin.includes('EUMETNET OPERA') && radarMin.includes('CC BY 4.0') && radarMin.includes('PRG/GUGiK'), 'radar attribution present');
+
+// Test 22: Okno radaru — bezpieczeństwo i dostępność
+console.log('  [22/22] Checking radar dialog security and accessibility...');
+const radarSrc = fs.readFileSync(path.resolve(__dirname, '../src/mo-radar.js'), 'utf8');
+assert(!radarSrc.includes('innerHTML') && !radarSrc.includes('insertAdjacentHTML'), 'mo-radar.js must not parse HTML');
+assert(radarSrc.includes('document.createElementNS(NS, tag)'), 'SVG built via createElementNS');
+assert(radarSrc.includes('prefers-reduced-motion: reduce'), 'radar respects prefers-reduced-motion');
+assert(radarSrc.includes("document.addEventListener('visibilitychange'"), 'animation pauses when the tab is hidden');
+assert(radarSrc.includes("d.setAttribute('aria-labelledby'") && radarSrc.includes("'aria-label', 'Zamknij radar'"), 'dialog labelled, close button labelled');
+
+console.log('✓ All Frontend Widget Unit Tests (22/22) passed successfully!\n');

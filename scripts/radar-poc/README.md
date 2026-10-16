@@ -1,6 +1,6 @@
 # Skrypty weryfikacyjne radaru (PoC)
 
-PoC i narzędzia diagnostyczne z `docs/RADAR-PLAN.md` (C.7, C.9, C.10). Kod produkcyjny powstanie w `src/` na bazie `render-frame.php`.
+PoC i narzędzia diagnostyczne z `docs/RADAR-PLAN.md` (C.7, C.9, C.10). **Kod produkcyjny jest już w `src/radar-lib.php`, `src/radar-api.php` i `scripts/radar-worker.php`.** Te skrypty zostają do diagnostyki (np. `render-frame.php --latest` na prawdziwej klatce) i danych testowych (`make-synthetic.py`).
 
 **PoC w czystym PHP**
 
@@ -10,6 +10,7 @@ PoC i narzędzia diagnostyczne z `docs/RADAR-PLAN.md` (C.7, C.9, C.10). Kod prod
 | `render-batch.php` | Renderuje wszystkie klatki z katalogu i zapisuje `frames.json`. |
 | `make-synthetic.py` | Syntetyczne klatki o budowie identycznej z OPERA (sterownik COG z GDAL). Służą do testu dekodera, **to nie są prawdziwe dane**. |
 | `validate.py` | Porównuje klatkę z PHP z dokładnym przeliczeniem PROJ i z GDAL warp. |
+| `e2e-browser.mjs` | Ręczny test okna radaru w Chrome: leniwe ładowanie, animacja, widoki, Esc i fokus, stany błędów, telefon, axe-core, CLS. Instrukcja w nagłówku pliku. |
 | `demo/index.html` | Klikalny prototyp okna radaru: przycisk, dialog, widoki, odtwarzacz, legenda. Mapę buduje z JSON przez DOM API. |
 | `compose-preview.mjs` | Statyczny podgląd okna radaru do dokumentacji (wymaga `@resvg/resvg-js` poza repo). |
 | `build-demo.sh` | Odtwarza cały PoC w podanym katalogu. |

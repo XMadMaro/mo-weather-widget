@@ -181,3 +181,65 @@ W szablonie Twig (`templates/_layout.twig` lub `templates/news/_entry.twig`):
             api-url="/weather-api.php"></mo-weather>
 ```
 > **Nota architektoniczna**: Taki sposób wdrożenia eliminuje zależność od zewnętrznych CDN-ów, zapewnia zerowy czas oczekiwania na połączenie TLS i 100% zgodność z polityką Content Security Policy (CSP).
+
+---
+
+## 8. Radar burzowy (atrybut `radar`)
+
+Atrybut `radar` dodaje w każdej karcie przycisk **„Radar burzowy”**. Kliknięcie otwiera okno z animowaną mapą opadów i burz z ostatniej godziny (klatka co 5 min, EUMETNET OPERA), z widokiem województwa i zbliżeniem na miasto karty. Działa we wszystkich trybach: `single`, `sidebar`, `aggregator` (przycisk w każdej karcie miasta) i `floating` (w panelu).
+
+```html
+<mo-weather mode="sidebar" city-id="katowice" modules="current,air,daily7,nowcast"
+            api-url="https://api.mediaoperator.pl/api/weather" radar></mo-weather>
+```
+
+Bez atrybutu `radar` widget wygląda i działa dokładnie jak dotąd.
+
+### A. Co ładuje się i skąd
+
+- **Do kliknięcia:** zero dodatkowego ruchu sieciowego.
+- **Po kliknięciu:**
+  1. Moduł okna `mo-radar.min.js` (ok. 53 KB, 19 KB po gzip, z mapą województwa). Ładuje się z tego samego katalogu co skrypt widgetu: `…/weather-widget.min.js` → `…/mo-radar.min.js`, z tym samym `?v=…`.
+  2. Dane: `GET …/api/radar?manifest` (lista klatek) i 13 obrazków PNG `…/api/radar?frame=…` (po ok. 30 KB, cache 24 h). Domyślnie z centralnego serwera `https://api.mediaoperator.pl/api/radar`.
+
+### B. Atrybuty
+
+| Atrybut | Domyślnie | Kiedy ustawiać |
+|---|---|---|
+| `radar` | brak (przycisk wyłączony) | Włącza przycisk. |
+| `radar-url` | `/api/radar` obok `api-url`, jeśli `api-url` kończy się na `/api/weather`; w pozostałych przypadkach (np. lokalne `weather-api.php`) `https://api.mediaoperator.pl/api/radar` | Tylko przy własnym serwerze radaru. |
+| `radar-src` | `mo-radar.min.js` obok skryptu widgetu | Gdy skrypt widgetu jest wklejony do bundla portalu albo leży w innym katalogu niż `mo-radar.min.js`. |
+
+### C. Portale z lokalnymi plikami JS (np. slazag.pl, sekcja 7C)
+
+1. Obok `weather-widget.min.js` wgrać `dist/mo-radar.min.js`, w tym samym katalogu i z tą samą wersją w `?v=`:
+   ```twig
+   {# ?v= podbić przy każdej aktualizacji plików (np. data wdrożenia), żeby przeglądarki pobrały nowe wersje #}
+   <script src="/assets/js/weather-widget.min.js?v=20261016" defer></script>
+   {# mo-radar.min.js leży w /assets/js/ i ładuje się sam po kliknięciu przycisku #}
+   <mo-weather mode="sidebar" city-id="katowice" modules="current,air,daily7,nowcast"
+               api-url="/weather-api.php" radar></mo-weather>
+   ```
+2. Lokalne proxy (`weather-api.php`) zostaje bez zmian. Radar pobiera dane z serwera centralnego, a domena portalu jest już na allowliście CORS.
+
+### D. Content Security Policy
+
+Jeśli portal ma nagłówek CSP, trzeba dopisać serwer centralny:
+
+```
+connect-src 'self' https://api.mediaoperator.pl;
+img-src     'self' data: https://api.mediaoperator.pl;
+```
+
+Przy ładowaniu skryptów z serwera centralnego (a nie z lokalnych plików) potrzebny jest też `script-src … https://api.mediaoperator.pl`. Okno używa tych samych stylów inline co widget, więc innych zmian nie ma.
+
+### E. Kolejność włączania (bez ryzyka)
+
+1. Serwer centralny musi produkować klatki: na Railway zmienna `MO_RADAR_MODE=producer`. Sprawdzenie: `https://api.mediaoperator.pl/api/radar?manifest` pokazuje `"status":"fresh"`.
+2. Dopiero potem dodać atrybut `radar` w szablonach, najpierw na jednym portalu.
+3. Gdy serwer nie ma klatek, okno pokazuje komunikat „Radar jest chwilowo niedostępny” z przyciskiem „Spróbuj ponownie” zamiast mapy.
+4. Wyłączenie: usunąć atrybut `radar` z szablonu (przycisk znika).
+
+### F. Wygląd
+
+Okno korzysta z tych samych zmiennych CSS co karta: `--mo-card`, `--mo-text`, `--mo-accent`, `--mo-border`, `--mo-radius`, `--mo-font`. Mapa ma stałe, jasne barwy, żeby kolory opadów były czytelne także w ciemnym motywie.

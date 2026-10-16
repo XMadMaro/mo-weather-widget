@@ -9,6 +9,7 @@ declare(strict_types=1);
  *  - 14 miast z allowlisty w src/cities.php (Katowice, Gliwice, Sosnowiec, Bytom, Zabrze, Tychy,
  *    Dąbrowa Górnicza, Chorzów, Świętochłowice, Ruda Śląska, Piekary Śląskie, Tarnowskie Góry, Knurów, Będzin).
  *  - Obsługa modułów: type=current (domyślny), type=air, type=daily7, type=nowcast, type=health.
+ *  - Radar burzowy: osobny endpoint src/radar-api.php (/api/radar); tu tylko sekcja `radar` w type=health.
  *  - Migracja z darmowego Open-Meteo na MET Norway locationforecast 2.0 (CC BY 4.0, w pełni legalny komercyjnie).
  *  - Moduł powietrza: pomiar GIOŚ (6 stacji, PM2,5 wyłącznie Katowice) + prognoza 3-dniowa IOŚ-PIB (8 miast).
  *  - Single-flight mutex (flock) chroniący przed thundering herd przy zimnym cache.
@@ -783,9 +784,24 @@ function mo_build_air(array $cityConfig, ?array $cached = null): ?array {
     ];
 }
 
+/**
+ * Sekcja `radar` w type=health. Biblioteka radaru jest opcjonalna: portale z lokalnym proxy
+ * wgrywają tylko weather-api.php i cities.php, więc bez src/radar-lib.php zwracamy status „off”.
+ */
+function mo_radar_health_section(): array {
+    $mode = strtolower(trim((string) getenv('MO_RADAR_MODE')));
+    if ($mode !== 'producer' || !is_file(__DIR__ . '/radar-lib.php')) {
+        return ['mode' => $mode !== '' ? $mode : 'off', 'status' => 'off'];
+    }
+    require_once __DIR__ . '/radar-lib.php';
+    return mo_radar_health(mo_cache_dir(), time());
+}
+
 /* ---------- FLOW GLOWNY ---------- */
 
-if (defined('MO_UNIT_TEST')) {
+// MO_UNIT_TEST: testy jednostkowe; MO_LIB_ONLY: src/radar-api.php i scripts/radar-worker.php
+// korzystają z helperów tego pliku (CORS, cache, odpowiedzi JSON) bez uruchamiania endpointu pogody.
+if (defined('MO_UNIT_TEST') || defined('MO_LIB_ONLY')) {
     return;
 }
 
@@ -816,6 +832,7 @@ if ($type === 'health') {
             'nowcast' => 'fresh',
         ],
         'cities_count' => count($MO_CITIES),
+        'radar'        => mo_radar_health_section(),
     ]);
 }
 

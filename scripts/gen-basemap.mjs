@@ -9,6 +9,7 @@
  *   curl -sLO https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/powiaty/powiaty-medium.geojson
  *   curl -sLO https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/wojewodztwa/wojewodztwa-medium.geojson
  *   node scripts/gen-basemap.mjs --powiaty powiaty-medium.geojson --woj wojewodztwa-medium.geojson --out DIR
+ *   node scripts/gen-basemap.mjs --powiaty … --woj … --js src/mo-radar-basemap.js   # dane dla mo-radar.js
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -18,14 +19,14 @@ const BBOX_LL = [16.8, 48.9, 21.2, 51.6];
 const W = 704;
 const H = 676;
 const R = 6378137;
-const TOLERANCE = 0.45; // px, upraszczanie linii
+const TOLERANCE = 0.6; // px, upraszczanie linii (0,6 px: ok. 40 KB podkładu w mo-radar.min.js)
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => {
   if (a.startsWith('--')) acc.push([a.slice(2), all[i + 1]]);
   return acc;
 }, []));
-if (!args.powiaty || !args.woj || !args.out) {
-  console.error('usage: node scripts/gen-basemap.mjs --powiaty FILE --woj FILE --out DIR');
+if (!args.powiaty || !args.woj || (!args.out && !args.js)) {
+  console.error('usage: node scripts/gen-basemap.mjs --powiaty FILE --woj FILE [--out DIR] [--js FILE]');
   process.exit(2);
 }
 
@@ -160,7 +161,7 @@ const regionLabels = [
 });
 // Geometria raz; frontend buduje z niej SVG przez DOM API: tło -> klatka radaru -> granice -> etykiety.
 const geometry = {
-  neighbors: pathOf(others.map((f) => f.geometry), 0.7),
+  neighbors: pathOf(others.map((f) => f.geometry), 1.0),
   powiaty: pathOf(slaskPow.map((f) => f.geometry)),
   slaskie: pathOf([slask.geometry]),
 };
@@ -198,8 +199,18 @@ for (const [slug, name, lon, lat, rank] of extra) {
   cities.push({ slug, name, x: f1(x), y: f1(y), rank, extra: true });
 }
 
-mkdirSync(args.out, { recursive: true });
 const json = JSON.stringify({ bbox_ll: BBOX_LL, size: [W, H], geometry, regions: regionLabels, cities });
-writeFileSync(join(args.out, 'radar-basemap.json'), json);
-writeFileSync(join(args.out, 'radar-basemap.svg'), svg);
-console.log(`radar-basemap.json: ${json.length} B, radar-basemap.svg: ${svg.length} B (powiaty śląskie: ${slaskPow.length}), miasta: ${cities.length}`);
+if (args.out) {
+  mkdirSync(args.out, { recursive: true });
+  writeFileSync(join(args.out, 'radar-basemap.json'), json);
+  writeFileSync(join(args.out, 'radar-basemap.svg'), svg);
+  console.log(`radar-basemap.json: ${json.length} B, radar-basemap.svg: ${svg.length} B (powiaty śląskie: ${slaskPow.length}), miasta: ${cities.length}`);
+}
+if (args.js) { // wklejane przez scripts/build.sh do dist/mo-radar.js (wspólny zakres IIFE)
+  const js = '/* Wygenerowane przez scripts/gen-basemap.mjs, nie edytować ręcznie.\n'
+    + ' * Granice: PRG (GUGiK) przez ppatrzyk/polska-geojson (MIT). Web Mercator, ' + W + 'x' + H + ' px, bbox jak klatki radaru. */\n'
+    + 'var MO_RADAR_BASEMAP = ' + json + ';\n';
+  mkdirSync(dirname(args.js), { recursive: true });
+  writeFileSync(args.js, js);
+  console.log(`${args.js}: ${js.length} B (powiaty śląskie: ${slaskPow.length}), miasta: ${cities.length}`);
+}

@@ -26,6 +26,22 @@ The `mo-weather-widget` is designed to be hosted in high-traffic, sensitive edit
 - Zero dynamic evaluation: all values retrieved from the API are injected into the DOM exclusively using `Element.textContent`.
 - Weather icons are hardcoded, immutable inline SVG nodes rather than arbitrary markup parsed from the upstream payload.
 
+### Storm Radar Endpoint (`/api/radar`)
+- The endpoint only serves files prepared by the background producer (`scripts/radar-worker.php`). Reader requests never reach the upstream data source.
+- The only client-controlled input is the frame id `frame=YYYYMMDDTHHMM`:
+  - it must match `^\d{8}T\d{4}$` and be a real UTC date;
+  - the file `radar_<id>.png` must exist in the radar cache directory;
+  - anything else returns `404`, so path injection is impossible.
+- No rate limit on purpose: responses are static files from disk (`immutable` frames, 60 s manifest), and one map view issues 14 requests.
+- The producer fetches upstream data under strict limits:
+  - only from a fixed HTTPS S3 host (EUMETNET OPERA, CloudFerro), with redirects disabled;
+  - only S3 keys matching a strict regular expression;
+  - S3 listings are parsed with SimpleXML and `LIBXML_NONET`;
+  - tile reads are capped at 4 MB.
+- Every frame's TIFF/COG structure is validated (byte order, sample format, compression, predictor, tiling, projection keys). An unknown layout raises `format_changed` instead of rendering a misleading image.
+- Same CORS allowlist, `X-Content-Type-Options: nosniff` and `OPTIONS`/`GET`/`HEAD`-only policy as the weather proxy.
+- The dialog module (`mo-radar.js`) builds its DOM via `textContent` and `createElementNS` only; it never parses HTML.
+
 ### Cache Directory Isolation
 - Cache storage is placed outside the webroot (`../var/cache`) by default.
 - Every cache directory automatically receives a `.htaccess` file denying all direct HTTP requests (`Require all denied`).

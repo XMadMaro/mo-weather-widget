@@ -64,6 +64,8 @@ Wszystkie używane API są w 100% legalne komercyjnie i bezpłatne (0 zł koszt�
 | `current`, `daily7`, `nowcast` | **MET Norway** `locationforecast/2.0/compact` | 0 zł | Creative Commons Attribution 4.0 (CC BY 4.0) | 20 req/s, unikalny User-Agent kontaktowy, współrzędne zaokrąglone do max 4 miejsc po przecinku. |
 | `air` (pomiary) | **GIOŚ PJP API** `api.gios.gov.pl/pjp-api/v1/rest/` | 0 zł | Otwarte dane publiczne RP | 1500 req/min dla `data/getData` oraz `aqindex/getIndex`. Odpytywanie `station/sensors` zabronione w runtime (konfiguracja statyczna w `src/cities.php`). |
 | `air` (prognoza) | **IOŚ-PIB** `api.prognozy.ios.edu.pl/v1/PM10/{TERYT}/` | 0 zł | Otwarte dane publiczne RP | Prognoza 3-dniowa stężenia PM10 dla jednostek TERYT (gminy/powiaty). |
+| radar burzowy (atrybut `radar`) | **EUMETNET OPERA** CIRRUS DBZH, publiczny S3 `s3.waw3-1.cloudferro.com/openradar-24h` | 0 zł | CC BY 4.0, atrybucja „EUMETNET OPERA (CC BY 4.0), dane przetworzone” | Pobiera wyłącznie producent (`scripts/radar-worker.php`, co minutę; nowa klatka co 5 min). Z pliku 3,4 MB czyta tylko nagłówek i 4 kafle przez HTTP Range. Zapytania czytelników nie trafiają do źródła. |
+| podkład mapy radaru | **PRG (GUGiK)** przez `ppatrzyk/polska-geojson` | 0 zł | dane publiczne PRG, repozytorium MIT | Zaszyty w `dist/mo-radar.min.js` (generator `scripts/gen-basemap.mjs`). |
 
 ---
 
@@ -274,9 +276,71 @@ Dla miasta bez stacji GIOŚ (np. Bytom):
     "daily7": "fresh",
     "nowcast": "fresh"
   },
-  "cities_count": 14
+  "cities_count": 14,
+  "radar": {
+    "mode": "producer",
+    "status": "fresh",
+    "latest": "20261016T1205",
+    "age_min": 7,
+    "frames": 13,
+    "nodata_pct": 0,
+    "error": null
+  }
 }
 ```
+
+**Sekcja `radar`:**
+- Bez `MO_RADAR_MODE=producer` albo bez pliku `src/radar-lib.php` (portale z lokalną kopią proxy) zawiera tylko `{"mode": "off", "status": "off"}`.
+- `status` liczony jest z wieku ostatniej klatki:
+  - `fresh`: do 15 min;
+  - `stale`: do 60 min;
+  - `down`: starsza albo brak klatek;
+  - `degraded`: świeża, ale ponad 20% obszaru bez pokrycia radarów.
+- `error` przyjmuje wartości:
+  - `null`;
+  - `upstream`: ostatnie listowanie albo pobranie z S3 się nie udało;
+  - `format_changed`: plik OPERA ma inną budowę niż obsługiwana. Klatki nie powstają, stare zostają do wygaśnięcia.
+
+### 4.7 Endpoint radaru `/api/radar` (`src/radar-api.php`)
+
+Endpoint tylko serwuje pliki przygotowane przez producenta, więc zapytania czytelników nie trafiają do źródła danych. Gdy `MO_RADAR_MODE` nie jest ustawione na `producer`, endpoint zwraca `404 {"status": "off"}`.
+
+**`GET /api/radar?manifest`**
+- Nagłówki:
+  - `Cache-Control: public, max-age=60`;
+  - `ETag` (md5 treści), obsługa `304`;
+  - `Server-Time`.
+- Treść:
+```json
+{
+  "status": "fresh",
+  "latest": "20261016T1205",
+  "generated": "2026-10-16T12:11:02Z",
+  "step_seconds": 300,
+  "frames": [{"t": "20261016T1105"}, {"t": "20261016T1110"}, {"t": "20261016T1205"}],
+  "bbox_ll": [16.8, 48.9, 21.2, 51.6],
+  "size": [704, 676],
+  "nodata_pct": 0,
+  "attribution": "Radar: EUMETNET OPERA (CC BY 4.0), dane przetworzone"
+}
+```
+- Pola:
+  - `frames`: od najstarszej do najnowszej, maksymalnie 13 (1 h co 5 min);
+  - `t`: czas nominalny klatki w UTC;
+  - `status`: jak w §4.6.
+- Brak manifestu daje odpowiedź `200` ze `status: "down"` i pustą listą.
+
+**`GET /api/radar?frame=YYYYMMDDTHHMM`**
+- Odpowiedź: PNG z paletą, 704×676 px, EPSG:3857, bbox identyczny z podkładem mapy.
+- Nagłówki: `Cache-Control: public, max-age=86400, immutable`, `ETag`, `304`; dla `HEAD` bez treści.
+- Warunki: `t` musi pasować do `^\d{8}T\d{4}$`, być prawdziwą datą i mieć plik w katalogu radaru. W przeciwnym razie `404`.
+- Paleta PNG:
+  - 0: przezroczysty (brak echa, < 10 dBZ);
+  - 1: szary półprzezroczysty (poza zasięgiem radarów);
+  - 2–12: klasy co 5 dBZ od 10 dBZ;
+  - 13: ≥ 65 dBZ.
+
+Metody: `GET`, `HEAD`, `OPTIONS` (204). CORS z tej samej allowlisty co `weather-api.php`.
 
 ---
 
@@ -294,7 +358,12 @@ Dla miasta bez stacji GIOŚ (np. Bytom):
    - Probabilistyczne Garbage Collection (1% szans) oczyszcza pliki śledzące IP starsze niż 24h.
 5. **Circuit Breaker:**
    - Błąd zewnętrznego upstreamu generuje 60-sekundowy plik markera `backoff_{city}_{type}.json`. W czasie awarii proxy natychmiast serwuje stary cache (`is_stale: true`) bez czekania na timeout.
-6. **Polityka Dostępności (WCAG 2.1 AA):**
+6. **Radar (`/api/radar`):**
+   - Klient przekazuje wyłącznie znacznik czasu klatki, walidowany wyrażeniem i poprawnością daty. Plik musi istnieć w katalogu radaru, więc ścieżek nie da się podstawić.
+   - Bez rate limitu: odpowiedzi to statyczne pliki z dysku (jedno otwarcie mapy to 14 zapytań), a źródło odpytuje tylko producent.
+   - Producent łączy się wyłącznie ze stałym adresem S3 po HTTPS, bez przekierowań. Pilnuje limitu rozmiaru kafla (4 MB) i sprawdza budowę pliku przy każdej klatce: nieznany format to błąd `format_changed`, a nie źle narysowany obraz.
+   - Okno radaru (`mo-radar.js`) buduje DOM przez `textContent` i `createElementNS`, bez parsowania HTML.
+7. **Polityka Dostępności (WCAG 2.1 AA):**
    - Kontrast tekstów i atrybucji wynosi co najmniej 4.5:1.
    - Alerty nowcast mają semantykę `role="status"` i `aria-live="polite"`.
    - Zastosowanie `@media (prefers-reduced-motion: reduce)` dla wszystkich animacji.

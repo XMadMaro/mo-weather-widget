@@ -1,7 +1,48 @@
 # Radar burzowy w `<mo-weather>`: plan wdrożenia
 
-> Stan na **2026-10-16**. Kod widgetu nie jest jeszcze zmieniony. Dane źródłowe sprawdziłem na żywo 15.10.2026 (A.2, C.2). Zrobiony jest też PoC dekodera w czystym PHP i okna radaru (C.10).
+> Stan na **2026-10-16**. Dane źródłowe sprawdziłem na żywo 15.10.2026 (A.2, C.2), PoC opisuje C.10.
 > Część **A** jest dla właściciela projektu i nie wymaga wiedzy technicznej. Części **B–D** są dla programisty.
+
+## Status: MVP zaimplementowany (B.1–B.3), czeka na wdrożenie (B.4)
+
+**Co jest w repozytorium:**
+- `src/radar-lib.php`: dekoder COG, LUT, PNG, cykl producenta;
+- `scripts/radar-worker.php`: producent;
+- `src/radar-api.php`: endpoint `/api/radar`;
+- `src/mo-radar.js` + `src/mo-radar-basemap.js`: okno radaru, budowane do `dist/mo-radar.min.js`;
+- w `src/weather-widget.js`: przycisk i ładowanie modułu po kliknięciu;
+- testy w `tests/radar.test.php` i `tests/widget.test.js` (19–22).
+
+**Sprawdzone lokalnie:**
+- **Dekoder.** Mini-plik COG z GDAL (`tests/fixtures/`) daje siatkę klas identyczną co do piksela z dokładnym przeliczeniem PROJ.
+- **Worker.** Na 13 syntetycznych plikach OPERA: 13 klatek, ok. 0,45 s na klatkę w PHP/WASM, PNG ok. 30 KB.
+- **Endpoint.**
+  - Działają ETag i 304, nagłówki cache, CORS z allowlisty.
+  - Zwraca 404 dla obcych `frame` i 405 dla POST.
+  - W `type=health` jest sekcja `radar`.
+- **Przeglądarka (Chrome 138, 23 sprawdzenia).**
+  - Przycisk pojawia się tylko z atrybutem `radar`, a moduł ładuje się dopiero po kliknięciu.
+  - Działają animacja, widok miasta, Esc z powrotem fokusu, tryby floating i aggregator, `prefers-reduced-motion`.
+  - Stany błąd / `down` / `stale` są obsłużone, napisy czytelne na telefonie.
+  - axe-core nie zgłasza błędów WCAG w oknie radaru.
+  - CLS 0: skeleton rośnie o wysokość przycisku.
+
+**Rozmiary:**
+- główny bundle 23 568 B (limit 25 000 B; wcześniej 20 625 B);
+- `mo-radar.min.js` 53 KB (19 KB po gzip, limit 60 KB);
+- podkład 40 KB (tolerancja uproszczenia 0,6 px).
+
+**Nadal niesprawdzone:** prawdziwa klatka OPERA, bo z mojego środowiska nie ma dostępu do S3 CloudFerro. Sprawdza ją krok 2 checklisty B.4: po deployu `/api/radar?manifest` ma pokazać `status: fresh`.
+
+**Odstępstwa od planu (świadome):**
+1. **Bez `src/mo-lib.php`.** Portale z lokalnym proxy kopiują tylko `weather-api.php` i `cities.php`; nowy wymagany plik by je zepsuł. Zamiast tego `radar-api.php` i worker definiują `MO_LIB_ONLY` i dołączają `weather-api.php` dla `mo_cors`, `mo_json`, `mo_cache_dir`.
+2. **Moduł jako zwykły skrypt (`<script>`), nie `import()`.** Import modułu ES z innej domeny wymaga CORS na plikach statycznych, a wbudowany serwer PHP go nie wysyła. Adres modułu to plik obok skryptu widgetu (`weather-widget.min.js` → `mo-radar.min.js`), atrybut `radar-src` go nadpisuje.
+3. **Bez rate limitu na `/api/radar`.** Jedno otwarcie mapy to 14 zapytań, a odpowiedzi to gotowe pliki z dysku, bez zapytań do źródła. Limit 30/min blokowałby czytelników bez korzyści.
+4. **`?frame=T` serwuje każdą istniejącą klatkę** (wyrażenie regularne, prawdziwa data, plik na dysku), nie tylko te z manifestu. Bez wyścigu z rotacją manifestu.
+5. **Manifest:** `frames: [{t}]`, `latest`, `bbox_ll`, `size`, `step_seconds` (URL klatki składa klient). Kontrakt jest w `docs/SPEC.md` §4.7.
+6. **Klatka jako SVG `<image>`, powiększenie przez `viewBox`** (nie CSS `transform`). Granice rysują się nad radarem, a napisy mają stały rozmiar na ekranie.
+7. **Wersja zostaje 2.0.0.** Testy przypinają ją w nagłówkach i w `type=health`; wyrównanie z CHANGELOG to osobny temat.
+8. **Domyślny widok to województwo** z wyróżnionym miastem czytelnika (burze nadciągają z daleka), przycisk z nazwą miasta przybliża.
 
 ---
 

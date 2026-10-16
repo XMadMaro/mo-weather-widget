@@ -591,7 +591,8 @@
                           mode="sidebar"
                           city-id="katowice"
                           api-url="/api/weather"
-                          modules="current,air,daily7,nowcast"></mo-weather>
+                          modules="current,air,daily7,nowcast"
+                          radar></mo-weather>
             </div>
           </div>
         </div>
@@ -650,6 +651,14 @@
             <option value="current">Tylko pogoda bieżąca (minimalny)</option>
           </select>
         </div>
+
+        <div class="gen-field">
+          <label for="gen-radar">Radar burzowy (atrybut radar):</label>
+          <select id="gen-radar">
+            <option value="" selected>Bez radaru</option>
+            <option value=" radar">Przycisk „Radar burzowy” w karcie</option>
+          </select>
+        </div>
       </div>
 
       <div class="snippet-wrap">
@@ -671,7 +680,8 @@
       <mo-weather mode="aggregator"
                   cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom"
                   api-url="/api/weather"
-                  modules="current,air"></mo-weather>
+                  modules="current,air"
+                  radar></mo-weather>
     </section>
 
   </main>
@@ -679,7 +689,7 @@
 
 <footer class="demo-footer">
   <div>
-    <strong>Źródła danych:</strong> MET Norway locationforecast 2.0 (CC BY 4.0) · Główny Inspektorat Ochrony Środowiska (GIOŚ) · Instytut Ochrony Środowiska (IOŚ-PIB).
+    <strong>Źródła danych:</strong> MET Norway locationforecast 2.0 (CC BY 4.0) · Główny Inspektorat Ochrony Środowiska (GIOŚ) · Instytut Ochrony Środowiska (IOŚ-PIB) · Radar: EUMETNET OPERA (CC BY 4.0).
   </div>
   <div>
     Wdrożenie dla Media Operator · 2026-10 · Demo hostowane na Railway · <a href="/api/weather?city=katowice&type=health" target="_blank">Health Status</a>
@@ -695,6 +705,7 @@
     var selMode = document.getElementById('gen-mode');
     var selCity = document.getElementById('gen-city');
     var selModules = document.getElementById('gen-modules');
+    var selRadar = document.getElementById('gen-radar');
     var txtSnippet = document.getElementById('gen-snippet');
     var btnCopy = document.getElementById('btn-copy');
 
@@ -702,16 +713,17 @@
       var m = selMode.value;
       var c = selCity.value;
       var mods = selModules.value;
+      var radar = selRadar.value;
       var api = (location.origin ? location.origin : 'https://api.mediaoperator.pl') + '/api/weather';
       var scriptUrl = (location.origin ? location.origin : 'https://api.mediaoperator.pl') + '/assets/weather-widget.min.js';
 
       var html = '<script src="' + scriptUrl + '" defer><\/script>\n';
       if (m === 'aggregator') {
-        html += '<mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+        html += '<mo-weather mode="aggregator" cities="katowice,gliwice,sosnowiec,zabrze,tychy,bytom" api-url="' + api + '" modules="' + mods + '"' + radar + '></mo-weather>';
       } else if (m === 'floating') {
-        html += '<mo-weather mode="floating" city-id="' + c + '" position="bottom-right" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+        html += '<mo-weather mode="floating" city-id="' + c + '" position="bottom-right" api-url="' + api + '" modules="' + mods + '"' + radar + '></mo-weather>';
       } else {
-        html += '<mo-weather mode="' + m + '" city-id="' + c + '" api-url="' + api + '" modules="' + mods + '"></mo-weather>';
+        html += '<mo-weather mode="' + m + '" city-id="' + c + '" api-url="' + api + '" modules="' + mods + '"' + radar + '></mo-weather>';
       }
       txtSnippet.value = html;
     }
@@ -719,6 +731,7 @@
     selMode.addEventListener('change', updateSnippet);
     selCity.addEventListener('change', updateSnippet);
     selModules.addEventListener('change', updateSnippet);
+    selRadar.addEventListener('change', updateSnippet);
     updateSnippet();
 
     btnCopy.addEventListener('click', function () {
@@ -760,7 +773,7 @@
     var floatActive = true;
 
     function initFloat() {
-      floatCont.innerHTML = '<mo-weather id="floating-live" mode="floating" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast"></mo-weather>';
+      floatCont.innerHTML = '<mo-weather id="floating-live" mode="floating" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast" radar></mo-weather>';
     }
     initFloat();
 

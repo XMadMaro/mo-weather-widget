@@ -7,7 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Radar burzowy (atrybut `radar`)**: przycisk „Radar burzowy” w karcie widgetu (wszystkie tryby; w trybie `aggregator` w każdej karcie miasta).
+  - **Okno:** `<dialog>` w shadow DOM z animacją opadów i burz z ostatniej godziny (13 klatek co 5 min) na mapie województwa śląskiego z granicami powiatów.
+  - **Widoki:** „Województwo” i zbliżenie na miasto karty.
+  - **Odtwarzacz:** play/pause, suwak, godzina w strefie Europe/Warsaw, „x min temu”; legenda natężenia i atrybucja.
+  - **Stany:** `stale` (plakietka „Dane sprzed X min”), `degraded`, `down` i błąd sieci (komunikat z „Spróbuj ponownie”).
+  - **Dostępność:** Esc z powrotem fokusu, `prefers-reduced-motion` (bez autoodtwarzania), pauza przy ukrytej karcie, CLS 0 (skeleton wyższy o przycisk), brak błędów WCAG w audycie axe-core.
+- **`src/mo-radar.js` + `src/mo-radar-basemap.js` → `dist/mo-radar.min.js`** (53 KB, 19 KB gzip): moduł ładowany dopiero po kliknięciu, jako zwykły skrypt obok `weather-widget.min.js`. Nowe atrybuty `radar-url` i `radar-src`.
+- **`src/radar-lib.php`**: producent klatek w czystym PHP, bez nowych zależności i bez zmian w obrazie Dockera.
+  - Czyta pliki COG EUMETNET OPERA (DBZH) przez HTTP Range: nagłówek i 4 kafle z 72.
+  - Sprawdza budowę pliku przy każdej klatce.
+  - Rzutuje na Web Mercator przez zapamiętaną tablicę LUT.
+  - Zapisuje PNG z paletą 704×676 px (ok. 30 KB).
+- **`scripts/radar-worker.php`**: cykl producenta (flock, retencja 2 h, `manifest.json`); tryb testowy `--src-dir`.
+- **`src/radar-api.php` (`/api/radar`)**:
+  - `?manifest` (60 s, ETag) i `?frame=…` (PNG, `immutable`);
+  - CORS z allowlisty;
+  - walidacja znacznika klatki.
+- **`type=health`**: sekcja `radar` (`status` fresh/stale/degraded/down, `age_min`, `error`: `upstream` / `format_changed`).
+- **`tests/radar.test.php`** (`npm run test:radar`, w `npm test`):
+  - projekcja LAEA względem PROJ;
+  - mini-plik COG z GDAL z wynikiem wzorcowym z PROJ (zgodność co do piksela);
+  - struktura PNG;
+  - odrzucanie zmienionego formatu;
+  - walidacja klatek, progi statusu;
+  - cykl producenta z podstawionym źródłem.
+- **`tests/widget.test.js`**: testy 19–22 (przycisk tylko z atrybutem, leniwe ładowanie, budżet `mo-radar.min.js` ≤ 60 KB, brak parsowania HTML w oknie).
+- **`public/index.html`**: radar w makiecie portalu, agregatorze i trybie floating; opcja radaru w generatorze kodu.
+
+### Changed
+- **`Dockerfile`**: przy `MO_RADAR_MODE=producer` w tle działa pętla producenta (`while true; … sleep 60`). Bez tej zmiennej nic się nie zmienia.
+- **`router.php`**: trasa `/api/radar` (i shim `public/api/radar.php`).
+- **`src/weather-api.php`**:
+  - strażnik `MO_LIB_ONLY`, dzięki któremu endpoint radaru i producent korzystają z helperów bez uruchamiania endpointu pogody;
+  - dla portali z lokalną kopią proxy bez zmian w działaniu.
+- **`scripts/build.sh`**: buduje `dist/mo-radar.js` i `dist/mo-radar.min.js` i kopiuje je do `public/assets/`.
+- **`scripts/gen-basemap.mjs`**:
+  - opcja `--js` (dane dla `mo-radar.js`);
+  - tolerancja uproszczenia 0,6 px (podkład 40 KB zamiast 50 KB).
+- Główny bundle: 23 568 B (limit 25 000 B).
+
 ### Docs
+- **`docs/INTEGRATION.md` §8**: atrybuty radaru, hosting lokalny (dwa pliki JS), CSP, kolejność włączania.
+- **`docs/MAINTENANCE.md` §4**: statusy radaru i co z nimi robić, logi, wyłączanie, test bez S3.
+- **`docs/SPEC.md`**: źródło danych radaru, sekcja `radar` w health (§4.6), kontrakt `/api/radar` (§4.7).
+- **`docs/SECURITY.md`**: model zagrożeń endpointu radaru.
+- **`docs/RADAR-PLAN.md`**: status wdrożenia i świadome odstępstwa od planu.
 - **`docs/RADAR-PLAN.md`**: plan wdrożenia modułu „Radar burzowy”.
   - **Część dla właściciela:** co powstanie, wyniki weryfikacji, koszty, decyzje domyślne, ryzyka.
   - **Plan krok po kroku:** zadania, pliki i kryteria „gotowe, gdy” dla każdego etapu, plus checklista wdrożenia bez ryzyka.
@@ -18,7 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - plik COG rozkodowany pole po polu: Float32, DEFLATE, bez predyktora, kafle 512.
   - **Rekomendacja:** producent klatek w czystym PHP (zgodny z CONTRIBUTING §1, bez zmian w obrazie Dockera); GDAL jako plan B.
   - **PoC (16.10.2026):** dekoder w czystym PHP na plikach o budowie identycznej z OPERA dał 100% zgodności z dokładnym przeliczeniem PROJ (13 klatek, 6,19 mln pikseli). Do tego klikalny prototyp okna radaru i podglądy w `docs/radar-poc/`.
-  - Bez zmian w kodzie widgetu.
 
 ### Dev
 - **`scripts/radar-poc/`**: PoC i skrypty weryfikacyjne radaru. To nie jest kod produkcyjny.
