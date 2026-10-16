@@ -1,0 +1,37 @@
+{
+ "tiff": "radar-mini.tiff",
+ "tiff_bytes": 16493,
+ "classes_md5": "46ccd361d4a29e343a159006465a993d",
+ "histogram": [
+  211266,
+  36106,
+  34786,
+  33541,
+  30420,
+  27029,
+  23981,
+  20769,
+  17561,
+  14454,
+  11259,
+  8126,
+  4889,
+  1717
+ ],
+ "window": {
+  "cols": [
+   20,
+   368
+  ],
+  "rows": [
+   17,
+   354
+  ]
+ },
+ "katowice_pixel": [
+  355,
+  339
+ ],
+ "katowice_class": 13,
+ "note": "Wzorzec z pyproj (dok\u0142adne przeliczenie ka\u017cdego piksela). Nie edytowa\u0107 r\u0119cznie."
+}

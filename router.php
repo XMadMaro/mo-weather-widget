@@ -34,6 +34,12 @@ if ($uri === '/api/weather' || $uri === '/api/weather.php' || $uri === '/api' ||
     return true;
 }
 
+// 1b. Radar burzowy: /api/radar (manifest i klatki PNG przygotowane przez scripts/radar-worker.php)
+if ($uri === '/api/radar' || $uri === '/api/radar.php') {
+    require __DIR__ . '/src/radar-api.php';
+    return true;
+}
+
 // 2. Obsługa plików statycznych w public/ (np. /assets/weather-widget.min.js, ikony, grafiki)
 $publicPath = __DIR__ . '/public' . $uri;
 if ($uri !== '/' && is_file($publicPath)) {

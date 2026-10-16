@@ -5,6 +5,7 @@
  * Dostępność (a11y): WCAG AA kontrast atrybucji (>= 4.5:1), role="region" w karuzeli aggregator, role="group" per karta.
  * Wydajność: skeleton 170px i min-height: 170px eliminują Cumulative Layout Shift (CLS = 0).
  * Moduły: current (domyślny), air (GIOŚ/IOŚ), daily7 (prognoza 7 dni), nowcast (alert opadów MET Norway).
+ * Radar burzowy (atrybut radar): przycisk w karcie; okno mapy (mo-radar.min.js) ładuje się dopiero po kliknięciu.
  * Fallbacki: backend stale => badge; backend martwy => mirror z localStorage; brak danych => dyskretny komunikat.
  */
 (function () {
@@ -13,6 +14,26 @@
   var REFRESH_MS = 15 * 60 * 1000; // odświeżanie co 15 min
   var LS_PREFIX  = 'mo-weather:v2:';
   var instances  = [];
+  var RADAR_API  = 'https://api.mediaoperator.pl/api/radar';
+  // Moduł radaru leży obok skryptu widgetu (weather-widget.min.js -> mo-radar.min.js); atrybut radar-src nadpisuje.
+  var SCRIPT_SRC = (document.currentScript && document.currentScript.src) || '';
+  var radarLoading = null;
+
+  function loadRadar(src) {
+    if (window.MoWeatherRadar) return Promise.resolve(window.MoWeatherRadar);
+    if (!radarLoading) {
+      radarLoading = new Promise(function (resolve, reject) {
+        if (!src) { reject(new Error('radar-src')); return; }
+        var sc = document.createElement('script');
+        sc.src = src;
+        sc.async = true;
+        sc.onload = function () { if (window.MoWeatherRadar) resolve(window.MoWeatherRadar); else reject(new Error('radar')); };
+        sc.onerror = function () { reject(new Error('radar')); };
+        document.head.appendChild(sc);
+      }).catch(function (e) { radarLoading = null; throw e; });
+    }
+    return radarLoading;
+  }
 
   // P1.8: Migracja kluczy localStorage v1 -> v2 (usunięcie pozostałości mo-weather:v1:*)
   try {
@@ -34,6 +55,7 @@
     snow:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M8 19h.01M12 21h.01M16 19h.01M10 22h.01M14 17h.01"/></svg>',
     storm:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 13a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 13z"/><path d="M13 14l-3 5h4l-3 5"/></svg>',
     drop:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+    radar:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 12l7-7"/><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M16.5 12a4.5 4.5 0 1 1-3.1-4.3"/></svg>',
     leaf:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>'
   };
 
@@ -129,6 +151,18 @@
     '.daily-temp{font-size:11px;color:var(--mo-text,#1a1a1a);}',
     '.daily-min{color:var(--mo-muted,#666);font-size:10px;}',
 
+    '/* Przycisk radaru burzowego (atrybut radar) */',
+    '.radar-btn{display:inline-flex;align-items:center;gap:6px;margin:10px 0 0;padding:6px 12px;border:1px solid var(--mo-border,#e5e5e5);border-radius:999px;',
+    'background:var(--mo-bg-sub,#f8f9fa);color:var(--mo-text,#1a1a1a);font:inherit;font-size:12px;font-weight:600;cursor:pointer;}',
+    '.radar-btn:hover{border-color:var(--mo-accent,#0b63ce);}',
+    '.radar-btn:focus-visible{outline:2px solid var(--mo-accent,#0b63ce);outline-offset:2px;}',
+    '.radar-btn[aria-busy="true"]{opacity:.6;cursor:progress;}',
+    '.rb-ico{width:16px;height:16px;color:var(--mo-accent,#0b63ce);}',
+    '.rb-ico svg{width:100%;height:100%;display:block;}',
+    '/* CLS = 0 także z przyciskiem radaru: skeleton i min-height wyższe o przycisk (34 px) */',
+    ':host([radar]:not([mode="floating"])) .wrap{min-height:204px;}',
+    ':host([radar]:not([mode="floating"])) .skel{height:204px;}',
+
     '.foot{margin:8px 2px 0;font-size:11px;color:var(--mo-foot,#595959);}',
     '.foot a{color:inherit;text-decoration:underline;}',
     '.skel{height:170px;border-radius:var(--mo-radius,12px);background:linear-gradient(90deg,#eee 25%,#f7f7f7 50%,#eee 75%);',
@@ -168,7 +202,7 @@
   ].join('\n');
 
   class MoWeather extends HTMLElement {
-    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules', 'position', 'sticky']; }
+    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules', 'position', 'sticky', 'radar', 'radar-url', 'radar-src']; }
 
     connectedCallback() {
       if (!this.shadowRoot) {
@@ -550,7 +584,53 @@
         card.appendChild(dWrap);
       }
 
+      // 5. Radar burzowy (atrybut radar): przycisk w każdej karcie, okno mapy ładowane po kliknięciu
+      if (this.hasAttribute('radar')) card.appendChild(this._radarButton(bundle.city, cityName));
+
       return card;
+    }
+
+    _radarButton(city, cityName) {
+      var self = this;
+      var b = el('button', 'radar-btn');
+      b.setAttribute('type', 'button');
+      b.setAttribute('aria-haspopup', 'dialog');
+      b.setAttribute('aria-label', 'Radar burzowy: ' + cityName);
+      var ico = el('span', 'rb-ico');
+      ico.innerHTML = ICONS.radar;
+      b.appendChild(ico);
+      var label = el('span', null, 'Radar burzowy');
+      b.appendChild(label);
+      b.addEventListener('click', function () {
+        b.setAttribute('aria-busy', 'true');
+        loadRadar(self._radarSrc()).then(function (radar) {
+          b.removeAttribute('aria-busy');
+          label.textContent = 'Radar burzowy';
+          radar.open({ root: self.shadowRoot, url: self._radarUrl(), city: city, cityName: cityName, trigger: b });
+        }, function () {
+          b.removeAttribute('aria-busy');
+          label.textContent = 'Radar niedostępny';
+        });
+      });
+      return b;
+    }
+
+    // Adres API radaru: atrybut radar-url, centralne /api/radar obok /api/weather, a dla lokalnych kopii proxy serwer centralny.
+    _radarUrl() {
+      var u = this.getAttribute('radar-url');
+      if (u) return u;
+      var api = this.getAttribute('api-url') || '';
+      return /\/api\/weather(\.php)?$/.test(api) ? api.replace(/weather(\.php)?$/, 'radar$1') : RADAR_API;
+    }
+
+    _radarSrc() {
+      var attr = this.getAttribute('radar-src');
+      if (attr) return attr;
+      try {
+        var u = new URL(SCRIPT_SRC || '/assets/weather-widget.min.js', SCRIPT_SRC ? undefined : new URL(this._radarUrl(), location.href));
+        u.pathname = u.pathname.replace(/[^\/]*$/, /\.min\.js$/.test(u.pathname) ? 'mo-radar.min.js' : 'mo-radar.js');
+        return u.href;
+      } catch (e) { return ''; }
     }
 
     _tick() {

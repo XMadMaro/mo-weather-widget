@@ -1,0 +1,16 @@
+name: Radar PoC
+on:
+  push:
+    branches: ['arena/8a9721bd-mo-weather-widget']
+    paths: ['.github/workflows/radar-poc.yml', 'scripts/radar-poc/**']
+permissions:
+  contents: write
+jobs:
+  poc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash scripts/radar-poc/ci.sh
