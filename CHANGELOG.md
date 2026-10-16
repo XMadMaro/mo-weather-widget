@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+- **`docs/RADAR-PLAN.md`**: plan wdrożenia modułu „Radar burzowy”.
+  - **Część dla właściciela:** co powstanie, wyniki weryfikacji, koszty, decyzje domyślne, ryzyka.
+  - **Plan krok po kroku:** zadania, pliki i kryteria „gotowe, gdy” dla każdego etapu, plus checklista wdrożenia bez ryzyka.
+  - **Szczegóły techniczne i research odrzuconych źródeł.**
+  - **Weryfikacja na żywych danych (15.10.2026):**
+    - kompozyt EUMETNET OPERA (CC BY 4.0) zawiera wszystkie 10 polskich radarów, w tym Ramżę i Górę Św. Anny;
+    - klatka co 5 min, publikacja ok. 4 min po czasie nominalnym;
+    - plik COG rozkodowany pole po polu: Float32, DEFLATE, bez predyktora, kafle 512.
+  - **Rekomendacja:** producent klatek w czystym PHP (zgodny z CONTRIBUTING §1, bez zmian w obrazie Dockera); GDAL jako plan B.
+  - Bez zmian w kodzie widgetu.
+
+### Dev
+- **`scripts/radar-poc/`**: jednorazowe skrypty weryfikacyjne radaru (analiza źródeł, worker z GDAL, test obrazu `php:8.2-cli` + `gdal-bin`, szablon workflow). To nie jest kod produkcyjny.
+
 ## [2.1.0] - 2026-10-08
 
 ### Added
