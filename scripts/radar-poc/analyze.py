@@ -66,7 +66,7 @@ RADARS = {
     "plgsa": ("Góra Św. Anny", 50.4639, 18.1532, 0),
     "plgdy": ("Gdynia-Szemud", 54.5009, 18.2718, 0),
 }
-CLASS_NAMES = ["nodata", "undetect", "lt10", "10_20", "20_35", "35_45", "ge45"]
+CLASS_NAMES = ["nodata", "undetect", "lt10", "10_20", "20_35", "35_45", "ge45", "nan"]
 
 R = {
     "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -328,7 +328,9 @@ def mask_for(geoms, ds, win):
 
 def classify(a):
     c = np.zeros(a.shape, np.uint8)  # 0 = nodata (brak pokrycia)
-    nod = ~np.isfinite(a) | (a <= -9.4e6)
+    isnan = np.isnan(a)
+    a = np.where(isnan, -9.9e6, a)
+    nod = (a <= -9.4e6) & ~isnan
     und = ~nod & (a <= -8.0e6)
     val = ~nod & ~und
     c[und] = 1
@@ -337,6 +339,7 @@ def classify(a):
     c[val & (a >= 20) & (a < 35)] = 4
     c[val & (a >= 35) & (a < 45)] = 5
     c[val & (a >= 45)] = 6
+    c[isnan] = 7  # NaN osobno: w metadanych COG jest "nan", trzeba ustalić, co oznacza
     return c
 
 
@@ -358,7 +361,7 @@ def save_classes(cls, ds, win, path):
     o.SetGeoTransform((gt[0] + c0 * gt[1], gt[1], 0.0, gt[3] + r0 * gt[5], 0.0, gt[5]))
     o.SetSpatialRef(ds.GetSpatialRef())
     o.GetRasterBand(1).WriteArray(cls)
-    o.GetRasterBand(1).SetDescription("0 nodata,1 undetect,2 <10,3 10-20,4 20-35,5 35-45,6 >=45 dBZ")
+    o.GetRasterBand(1).SetDescription("0 nodata,1 undetect,2 <10,3 10-20,4 20-35,5 35-45,6 >=45 dBZ,7 NaN")
     o = None
 
 
@@ -395,7 +398,7 @@ def coverage(path, label):
     b1 = ds.GetRasterBand(1).ReadAsArray(*win).astype(np.float64)
     cls = classify(b1)
     res = {"poland_window_px": win, "poland": counts(cls, m_pl), "slaskie": counts(cls, m_sl)}
-    v = m_sl & (cls >= 2)
+    v = m_sl & (cls >= 2) & (cls <= 6)
     res["slaskie_max_dbz"] = round(float(b1[v].max()), 1) if v.any() else None
     if ds.RasterCount >= 2:
         q = ds.GetRasterBand(2).ReadAsArray(*win).astype(np.float64)[m_sl]
@@ -413,7 +416,8 @@ def coverage(path, label):
         ring = np.hypot(X - x, Y - y) <= 60000
         if ring.any():
             per[code] = {"name": name, "opera_status": status,
-                         "covered_pct_60km": round(100.0 * float((cls[ring] != 0).mean()), 1)}
+                         "covered_pct_60km": round(100.0 * float((cls[ring] != 0).mean()), 1),
+                         "nan_pct_60km": round(100.0 * float((cls[ring] == 7).mean()), 1)}
     res["radars_60km"] = per
     save_classes(cls, ds, win, os.path.join(OUT, f"classes_{label}.tif"))
     R.setdefault("coverage", {})[label] = res
@@ -433,10 +437,10 @@ def echo_search(frames):
             cls = classify(ds.GetRasterBand(1).ReadAsArray(*win).astype(np.float64))
             rows.append({
                 "t": t,
-                "slaskie_ge20_km2": int(((cls >= 4) & m_sl).sum()),
-                "slaskie_ge35_km2": int(((cls >= 5) & m_sl).sum()),
-                "poland_ge20_km2": int(((cls >= 4) & m_pl).sum()),
-                "poland_ge35_km2": int(((cls >= 5) & m_pl).sum()),
+                "slaskie_ge20_km2": int(((cls >= 4) & (cls <= 6) & m_sl).sum()),
+                "slaskie_ge35_km2": int(((cls >= 5) & (cls <= 6) & m_sl).sum()),
+                "poland_ge20_km2": int(((cls >= 4) & (cls <= 6) & m_pl).sum()),
+                "poland_ge35_km2": int(((cls >= 5) & (cls <= 6) & m_pl).sum()),
                 "slaskie_nodata_pct": round(100.0 * float((cls[m_sl] == 0).mean()), 2),
                 "poland_nodata_pct": round(100.0 * float((cls[m_pl] == 0).mean()), 2),
             })

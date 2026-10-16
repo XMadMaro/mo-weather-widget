@@ -162,7 +162,7 @@ foreach ($frames as $t => $f) {
     $log = '';
     $s = microtime(true);
     $ok = run('timeout 60 gdal_translate -q -of VRT -b 1 ' . escapeshellarg("/vsicurl/$url") . ' ' . escapeshellarg("$tmp/dbzh.vrt"), $log)
-        && run('timeout 60 gdalwarp -q -overwrite -te ' . implode(' ', BBOX_LL) . ' -te_srs EPSG:4326 -t_srs EPSG:3857 -ts '
+        && run('timeout 60 gdalwarp -q -overwrite -ovr NONE -te ' . implode(' ', BBOX_LL) . ' -te_srs EPSG:4326 -t_srs EPSG:3857 -ts '
             . SIZE[0] . ' ' . SIZE[1] . ' -r near ' . escapeshellarg("$tmp/dbzh.vrt") . ' ' . escapeshellarg("$tmp/w.tif"), $log)
         && run('timeout 60 gdaldem color-relief -q -of PNG -alpha -nearest_color_entry ' . escapeshellarg("$tmp/w.tif") . ' '
             . escapeshellarg($palette) . ' ' . escapeshellarg($part), $log);
