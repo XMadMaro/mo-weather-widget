@@ -1,6 +1,6 @@
 # Radar burzowy w `<mo-weather>`: plan wdrożenia
 
-> Stan na **2026-10-16**. To plan; kod widgetu nie jest jeszcze zmieniony. Dane źródłowe sprawdziłem na żywo 15.10.2026 (A.2, C.2).
+> Stan na **2026-10-16**. Kod widgetu nie jest jeszcze zmieniony. Dane źródłowe sprawdziłem na żywo 15.10.2026 (A.2, C.2). Zrobiony jest też PoC dekodera w czystym PHP i okna radaru (C.10).
 > Część **A** jest dla właściciela projektu i nie wymaga wiedzy technicznej. Części **B–D** są dla programisty.
 
 ---
@@ -31,8 +31,9 @@ Czego to **nie** będzie:
 | Pioruny (opcja) | Warstwa EUMETSAT działa. Nowe dane co 5 min, opóźnienie ok. 15 min. | zapytanie o 23:56 |
 | Wiatr (opcja) | MET Norway, już używany w widgecie, zwraca kierunek i prędkość wiatru. | zapytanie o 23:56 |
 | Ostrzeżenia IMGW (opcja) | Działają. Kody powiatów śląskich są w danych: tej nocy ostrzeżenie przed mgłą obejmowało m.in. powiaty 2401, 2404, 2416 i Dąbrowę Górniczą (2465). | zapytanie o 23:56 |
+| Czy nasz kod w PHP poprawnie maluje radar na mapie? | **Tak.** Dekoder w czystym PHP odczytał pliki o identycznej budowie jak OPERA (zapisane tym samym narzędziem, GDAL). Wynik: 13 klatek, 6,19 mln pikseli, **100% zgodności** z dokładnym przeliczeniem wzorcowej biblioteki PROJ. Klatka nakłada się na mapę województwa 1:1 (C.10). | PoC 16.10.2026, dane syntetyczne |
 
-**Czego jeszcze nie sprawdziłem:** kodu, który maluje obraz nad Śląskiem (jeszcze nie istnieje), ani tego, jak ten obraz wygląda. Ryzyko jest małe, bo format pliku znamy już co do bajtu. To pierwszy krok wdrożenia. Czytelnicy zobaczą przycisk dopiero wtedy, gdy obraz będzie dobry (B.4).
+**Czego jeszcze nie sprawdziłem:** przepuszczenia prawdziwej klatki przez nasz dekoder, bo z mojego środowiska nie ma dostępu do serwera z danymi. Ryzyko jest małe: format prawdziwego pliku znamy co do bajtu, a pliki testowe mają identyczną budowę. Zrobi to jedno polecenie (`php scripts/radar-poc/render-frame.php --latest`) przy pierwszym wdrożeniu albo test w GitHub Actions (C.9). Czytelnicy zobaczą przycisk dopiero wtedy, gdy obraz będzie dobry (B.4).
 
 ### A.3 Ile to kosztuje
 
@@ -41,7 +42,7 @@ Czego to **nie** będzie:
 | Dane radarowe | **0 zł** (CC BY 4.0) |
 | Serwer | Obecny Railway, bez nowych usług. Ok. 1 s pracy procesora co 5 min, kilka MB dysku, ok. 50–120 MB pobranych danych na dobę. |
 | Transfer do czytelników | Ok. 100–300 KB na jedno otwarcie mapy. Klatki zostają w pamięci podręcznej przeglądarki. |
-| Praca | Pierwsza wersja (sam radar): **5–6 dni** programisty. Każda opcja (pioruny, wiatr, ostrzeżenia) to 0,5–1 dnia. |
+| Praca | Pierwsza wersja (sam radar): **4–5 dni** programisty, bo dekoder, generator mapy i prototyp okna już są (C.10). Każda opcja (pioruny, wiatr, ostrzeżenia) to 0,5–1 dnia. |
 | Utrzymanie | Praktycznie zero. Wyjątek: reakcja na alert, gdyby EUMETNET zmienił format pliku (A.5). |
 
 ### A.4 Decyzje, które podjąłem za Ciebie
@@ -80,7 +81,9 @@ Nie musisz niczego wybierać. Jeśli z czymś się nie zgadzasz, daj znać.
 
 Każdy etap kończy się działającym i przetestowanym stanem. Kolejność jest celowa: backend pracuje w tle, zanim czytelnicy zobaczą przycisk.
 
-### B.1 Producent klatek w czystym PHP (ok. 2,5 dnia)
+### B.1 Producent klatek w czystym PHP (ok. 1,5–2 dni)
+
+Punkty 2–4 są już zrobione w PoC (`scripts/radar-poc/render-frame.php`). Zostaje przeniesienie ich do `src/radar-lib.php` z testami.
 
 | # | Zadanie | Pliki |
 |---|---|---|
@@ -100,7 +103,13 @@ Każdy etap kończy się działającym i przetestowanym stanem. Kolejność jest
 - PNG ma nie więcej niż 50 KB;
 - testy przechodzą.
 
-### B.2 Okno radaru w widgecie (ok. 2 dni)
+### B.2 Okno radaru w widgecie (ok. 1,5 dnia)
+
+Gotowe w PoC:
+- generator mapy (`scripts/gen-basemap.mjs`);
+- prototyp okna (`scripts/radar-poc/demo/index.html`).
+
+Zostaje przeniesienie prototypu do shadow DOM widgetu i ładowanie leniwe.
 
 | # | Zadanie | Pliki |
 |---|---|---|
@@ -362,6 +371,46 @@ To narzędzie diagnostyczne i plan B, a nie kod produkcyjny:
 - paleta dla `gdaldem`.
 
 Instrukcja uruchomienia jest w `scripts/radar-poc/README.md`.
+
+### C.10 PoC: dekoder w czystym PHP i okno radaru (16.10.2026)
+
+**Co zrobiłem**
+
+1. **Pliki testowe** (`make-synthetic.py`): 13 klatek w odstępie 5 min o budowie identycznej z OPERA:
+   - zapisane sterownikiem COG z GDAL 3.10, czyli tym samym narzędziem co OPERA: 3800×4400, 2 pasma Float32 przeplatane, kafle 512, DEFLATE bez predyktora;
+   - wartości specjalne: nodata −9999000, undetect −8888000, do tego kilka pikseli NaN;
+   - overviews liczone metodą CUBIC, projekcja LAEA zapisana tak samo („Unknown based on WGS 84 ellipsoid”).
+
+   **Echa są syntetyczne:** linia burz przesuwająca się przez Śląsk na północny wschód. To nie są prawdziwe dane radarowe.
+2. **Dekoder w czystym PHP** (`render-frame.php`):
+   - nagłówek i IFD0 z jednego zapytania (64 KB);
+   - walidacja formatu, w tym GeoKeys projekcji;
+   - **dokładnie 4 przewidziane kafle** (indeksy 36, 37, 44, 45);
+   - LUT, paleta, PNG z paletą.
+
+   Ten sam kod czyta plik lokalny albo URL przez HTTP Range.
+3. **Weryfikacja** (`validate.py`): każda klatka porównana piksel po pikselu z dwoma wzorcami: z dokładnym przeliczeniem PROJ i z GDAL.
+4. **Mapa** (`scripts/gen-basemap.mjs`, bez zależności): 36 powiatów śląskich, sąsiednie województwa, 25 miejscowości. Wynik to JSON o rozmiarze 49 KB, po gzip 16 KB.
+5. **Prototyp okna** (`demo/index.html`): przycisk, dialog, widoki „Województwo” i „Moje miasto” (14 miast do wyboru), odtwarzacz, legenda, unikanie kolizji etykiet. Warstwy w kolejności tło → radar → granice → etykiety. Całość budowana przez DOM API.
+
+**Wyniki**
+
+| Co | Wynik |
+|---|---|
+| Zgodność z dokładnym przeliczeniem PROJ | **100,0000%**, 0 różnych pikseli na 13 × 475 904 = 6,19 mln |
+| Zgodność z GDAL warp (ustawienia domyślne) | 99,52–99,56%. Różnice leżą tylko na granicach pikseli, bo GDAL domyślnie przybliża transformację (błąd do 0,125 px). Nasz wynik jest dokładniejszy. |
+| Projekcja LAEA w PHP względem pyproj | maksymalny błąd 5 cm |
+| Czas na klatkę (PHP 8.5 w WebAssembly, wolniejsze od natywnego) | ok. 0,45–0,6 s; LUT liczony raz w 0,46 s, potem wczytywany z cache w ok. 0,08 s |
+| Pamięć | ok. 30 MB |
+| PNG na klatkę | ok. 30 KB przy linii burz nad całym regionem; przy typowej pogodzie mniej |
+
+![Podgląd: województwo](radar-poc/preview-region.png)
+
+![Podgląd: Moje miasto (Katowice)](radar-poc/preview-city.png)
+
+**Jak odtworzyć:** `bash scripts/radar-poc/build-demo.sh /tmp/radar-poc-demo`.
+
+**Co zostaje:** przepuścić prawdziwą klatkę przez ten sam dekoder. Wystarczy jedno polecenie na dowolnej maszynie z PHP 8.1+ i dostępem do internetu: `php scripts/radar-poc/render-frame.php --latest --out=frame.png`. Alternatywnie robi to `ci.sh`, razem z porównaniem z PROJ/GDAL i podglądem.
 
 ---
 

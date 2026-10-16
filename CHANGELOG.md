@@ -17,10 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - klatka co 5 min, publikacja ok. 4 min po czasie nominalnym;
     - plik COG rozkodowany pole po polu: Float32, DEFLATE, bez predyktora, kafle 512.
   - **Rekomendacja:** producent klatek w czystym PHP (zgodny z CONTRIBUTING §1, bez zmian w obrazie Dockera); GDAL jako plan B.
+  - **PoC (16.10.2026):** dekoder w czystym PHP na plikach o budowie identycznej z OPERA dał 100% zgodności z dokładnym przeliczeniem PROJ (13 klatek, 6,19 mln pikseli). Do tego klikalny prototyp okna radaru i podglądy w `docs/radar-poc/`.
   - Bez zmian w kodzie widgetu.
 
 ### Dev
-- **`scripts/radar-poc/`**: jednorazowe skrypty weryfikacyjne radaru (analiza źródeł, worker z GDAL, test obrazu `php:8.2-cli` + `gdal-bin`, szablon workflow). To nie jest kod produkcyjny.
+- **`scripts/radar-poc/`**: PoC i skrypty weryfikacyjne radaru. To nie jest kod produkcyjny.
+  - Dekoder COG w czystym PHP (`render-frame.php`, kandydat na `src/radar-lib.php`).
+  - Generator danych syntetycznych, walidacja względem PROJ/GDAL, prototyp okna (`demo/`).
+  - Analiza źródeł, plan B z GDAL, szablon workflow.
+- **`scripts/gen-basemap.mjs`**: generator podkładu mapy radaru z granic PRG (bez zależności).
 
 ## [2.1.0] - 2026-10-08
 

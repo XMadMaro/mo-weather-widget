@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Radar burzowy: prototyp (PoC)</title>
+<style>
+  :root { --ink: #111827; --muted: #6b7280; --line: #e5e7eb; --accent: #d6336c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f4f5f7; }
+  main { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+  .note { background: #fff7e6; border: 1px solid #f5d38f; border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .card { margin-top: 18px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .card .temp { font-size: 34px; font-weight: 700; }
+  .card .meta { color: var(--muted); font-size: 14px; flex: 1; min-width: 160px; }
+  .btn-radar { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 16px; background: var(--ink); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  .btn-radar svg { width: 18px; height: 18px; }
+  label.city { font-size: 14px; color: var(--muted); }
+  dialog { width: min(760px, 100vw); max-width: 100vw; padding: 0; border: 0; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  dialog::backdrop { background: rgba(17, 24, 39, .55); }
+  .head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; flex-wrap: wrap; }
+  .head h2 { margin: 0; font-size: 18px; }
+  .badge { background: #fde2e1; color: #b42318; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+  .views { margin-left: auto; display: inline-flex; background: #f3f4f6; border-radius: 999px; padding: 2px; }
+  .views button { border: 0; background: transparent; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; color: #374151; }
+  .views button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .close { border: 0; background: transparent; font-size: 24px; line-height: 1; cursor: pointer; padding: 2px 6px; color: #374151; }
+  .map { position: relative; background: #e7eaee; }
+  .map svg { display: block; width: 100%; height: auto; }
+  .status { position: absolute; left: 10px; top: 10px; background: rgba(255,255,255,.9); border-radius: 8px; padding: 4px 8px; font-size: 12px; color: #374151; }
+  .player { display: flex; align-items: center; gap: 12px; padding: 10px 14px 4px; }
+  .player button { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--ink); color: #fff; cursor: pointer; font-size: 14px; }
+  .player input { flex: 1; accent-color: var(--ink); }
+  .player .time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 132px; text-align: right; }
+  .player .time small { font-weight: 400; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 6px 14px; font-size: 12.5px; color: #374151; }
+  .legend i { display: inline-block; width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+  .foot { padding: 4px 14px 12px; font-size: 11.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 640px) { dialog { border-radius: 0; height: 100vh; max-height: 100vh; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="note"><strong>Prototyp (PoC) okna radaru.</strong>
+    <span id="syntheticNote">Klatki to dane syntetyczne o budowie identycznej z plikami EUMETNET OPERA.</span>
+    Wyrenderował je dekoder w czystym PHP (<code>scripts/radar-poc/render-frame.php</code>); mapę zbudowano z granic PRG.
+    Prawdziwy obraz pojawi się przy pierwszym uruchomieniu na serwerze.</p>
+  <div class="card">
+    <div class="temp">12°</div>
+    <div class="meta" id="cardMeta">Katowice · tak mógłby wyglądać przycisk w karcie widgetu</div>
+    <label class="city">Miasto czytelnika:
+      <select id="citySel"></select>
+    </label>
+    <button class="btn-radar" id="openRadar" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12 18 6M12 3v3M3 12h3"/></svg>
+      Radar burzowy
+    </button>
+  </div>
+</main>
+
+<dialog id="radar" aria-labelledby="radarTitle">
+  <div class="head">
+    <h2 id="radarTitle">Radar burzowy</h2>
+    <span class="badge" id="badge" hidden>DANE SYNTETYCZNE</span>
+    <div class="views" role="group" aria-label="Widok mapy">
+      <button type="button" data-view="region" aria-pressed="true">Województwo</button>
+      <button type="button" data-view="city" aria-pressed="false" id="cityBtn">Moje miasto</button>
+    </div>
+    <button class="close" type="button" aria-label="Zamknij" id="closeRadar">×</button>
+  </div>
+  <div class="map"><svg id="mapSvg" viewBox="0 0 704 676" role="img" aria-label="Mapa radarowa"></svg><div class="status" id="status">Ładowanie…</div></div>
+  <div class="player">
+    <button type="button" id="play" aria-label="Odtwórz">▶</button>
+    <input type="range" id="slider" min="0" max="0" value="0" aria-label="Klatka">
+    <span class="time" id="time">–</span>
+  </div>
+  <div class="legend" aria-label="Legenda">
+    <span><i style="background:#a0dcff"></i>słaby</span>
+    <span><i style="background:#19b946"></i>umiarkowany</span>
+    <span><i style="background:#fae100"></i>silny</span>
+    <span><i style="background:#ff5500"></i>bardzo silny / burza</span>
+    <span><i style="background:#e100e1"></i>możliwy grad</span>
+    <span><i style="background:rgba(128,128,128,.4)"></i>brak danych</span>
+  </div>
+  <div class="foot"><span>Opóźnienie radaru ok. 5–10 min</span><span>Radar: EUMETNET OPERA (CC BY 4.0) · Granice: PRG/GUGiK</span></div>
+</dialog>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 704, H = 676, ZOOM = 2.6;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+  const svg = $('mapSvg');
+  const el = (name, attrs, parent) => {
+    const n = document.createElementNS(NS, name);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const fmt = new Intl.DateTimeFormat('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' });
+  const toDate = (t) => new Date(Date.UTC(+t.slice(0, 4), +t.slice(4, 6) - 1, +t.slice(6, 8), +t.slice(9, 11), +t.slice(11, 13)));
+
+  let base, frames = [], idx = 0, timer = null, view = 'region', city = 'katowice', frameImg, labelsG, vb = [0, 0, W, H];
+
+  Promise.all([fetch('radar-basemap.json').then((r) => r.json()), fetch('frames.json').then((r) => r.json())]).then(([b, f]) => {
+    base = b;
+    frames = f.frames;
+    $('badge').hidden = !f.synthetic;
+    if (!f.synthetic) $('syntheticNote').textContent = 'Klatki to prawdziwe dane EUMETNET OPERA.';
+    const sel = $('citySel');
+    for (const c of base.cities.filter((c) => !c.extra)) {
+      const o = document.createElement('option');
+      o.value = c.slug;
+      o.textContent = c.name;
+      sel.appendChild(o);
+    }
+    sel.value = city;
+    $('cityBtn').textContent = base.cities.find((c) => c.slug === city).name;
+    build();
+    $('slider').max = String(frames.length - 1);
+    frames.forEach((fr) => { const i = new Image(); i.src = fr.file; fr.img = i; });
+    show(frames.length - 1);
+    $('status').textContent = `${frames.length} klatek co 5 min`;
+  }).catch(() => { $('status').textContent = 'Radar chwilowo niedostępny'; });
+
+  function build() {
+    const defs = el('defs', {}, svg);
+    el('path', { id: 'g-n', d: base.geometry.neighbors }, defs);
+    el('path', { id: 'g-p', d: base.geometry.powiaty }, defs);
+    el('path', { id: 'g-s', d: base.geometry.slaskie }, defs);
+    el('rect', { width: W, height: H, fill: '#e7eaee' }, svg);
+    el('use', { href: '#g-n', fill: '#f3f1eb' }, svg);
+    el('use', { href: '#g-p', fill: '#fffdf8' }, svg);
+    frameImg = el('image', { width: W, height: H, preserveAspectRatio: 'none' }, svg);   // klatka radaru
+    el('use', { href: '#g-n', fill: 'none', stroke: '#8f887a', 'stroke-width': .8, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke', opacity: .8 }, svg);
+    el('use', { href: '#g-p', fill: 'none', stroke: '#8f887a', 'stroke-width': .5, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke', opacity: .55 }, svg);
+    el('use', { href: '#g-s', fill: 'none', stroke: '#3f3a32', 'stroke-width': 1.8, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }, svg);
+    const regions = el('g', { 'font-size': 10, fill: '#8d877b', 'letter-spacing': 1, 'text-anchor': 'middle', id: 'regions' }, svg);
+    for (const r of base.regions) el('text', { x: r.x, y: r.y }, regions).textContent = r.t;
+    labelsG = el('g', {}, svg);
+    drawLabels();
+  }
+
+  function drawLabels() {
+    labelsG.replaceChildren();
+    const z = W / vb[2];
+    const sw = 3 / z;
+    const placed = [];
+    const list = base.cities
+      .filter((c) => z > 1.5 || c.rank === 1 || c.slug === city)
+      .sort((a, b) => (b.slug === city) - (a.slug === city) || a.rank - b.rank);
+    for (const c of list) {
+      const me = c.slug === city;
+      el('circle', { cx: c.x, cy: c.y, r: (me ? 4.2 : 2.6) / z, fill: me ? '#d6336c' : '#1f2937', stroke: '#fff', 'stroke-width': 1.2 / z }, labelsG);
+      const w = c.name.length * 6.9 / z * (me ? 1.08 : 1), h = 13 / z;
+      for (const side of [1, -1]) {
+        const x = side > 0 ? c.x + 6 / z : c.x - 6 / z - w;
+        const box = [x, c.y - h / 2, x + w, c.y + h / 2];
+        if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
+        placed.push(box);
+        const t = el('text', { x: side > 0 ? c.x + 6 / z : c.x - 6 / z, y: c.y + 4 / z, 'text-anchor': side > 0 ? 'start' : 'end',
+          'font-size': (me ? 13 : 11.5) / z, 'font-weight': me ? 700 : 500, fill: '#111827', stroke: '#fff',
+          'stroke-width': sw, 'paint-order': 'stroke' }, labelsG);
+        t.textContent = c.name;
+        break;
+      }
+    }
+  }
+
+  function show(i) {
+    idx = i;
+    const fr = frames[i];
+    frameImg.setAttribute('href', fr.file);
+    $('slider').value = String(i);
+    const d = toDate(fr.t);
+    const ago = Math.round((Date.now() - d) / 60000);
+    const time = $('time');
+    time.textContent = fmt.format(d) + ' ';
+    const small = document.createElement('small');
+    small.textContent = i === frames.length - 1 ? `(${ago} min temu)` : `${i + 1}/${frames.length}`;
+    time.appendChild(small);
+  }
+
+  function setPlaying(on) {
+    clearTimeout(timer);
+    timer = null;
+    $('play').textContent = on ? '❚❚' : '▶';
+    $('play').setAttribute('aria-label', on ? 'Pauza' : 'Odtwórz');
+    if (!on) return;
+    const step = () => {
+      const next = (idx + 1) % frames.length;
+      show(next);
+      timer = setTimeout(step, next === frames.length - 1 ? 1500 : 500);
+    };
+    timer = setTimeout(step, 400);
+  }
+
+  function setView(v) {
+    view = v;
+    document.querySelectorAll('.views button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+    const c = base.cities.find((x) => x.slug === city);
+    const target = v === 'city'
+      ? [Math.min(Math.max(c.x - W / ZOOM / 2, 0), W - W / ZOOM), Math.min(Math.max(c.y - H / ZOOM / 2, 0), H - H / ZOOM), W / ZOOM, H / ZOOM]
+      : [0, 0, W, H];
+    const from = vb.slice(), t0 = performance.now(), dur = reduced ? 0 : 320;
+    const tick = (now) => {
+      const k = dur ? Math.min(1, (now - t0) / dur) : 1;
+      const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      vb = from.map((f, j) => f + (target[j] - f) * e);
+      svg.setAttribute('viewBox', vb.join(' '));
+      if (k < 1) requestAnimationFrame(tick); else drawLabels();
+    };
+    requestAnimationFrame(tick);
+  }
+
+  $('openRadar').addEventListener('click', () => {
+    $('radar').showModal();
+    if (frames.length && !reduced) setPlaying(true);
+  });
+  $('closeRadar').addEventListener('click', () => $('radar').close());
+  $('radar').addEventListener('close', () => setPlaying(false));
+  $('play').addEventListener('click', () => setPlaying(!timer));
+  $('slider').addEventListener('input', (e) => { setPlaying(false); show(+e.target.value); });
+  document.querySelectorAll('.views button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  $('citySel').addEventListener('change', (e) => {
+    city = e.target.value;
+    const c = base.cities.find((x) => x.slug === city);
+    $('cardMeta').textContent = `${c.name} · tak mógłby wyglądać przycisk w karcie widgetu`;
+    $('cityBtn').textContent = c.name;
+    if (view === 'city') setView('city'); else drawLabels();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) setPlaying(false); });
+})();
+</script>
+</body>
+</html>

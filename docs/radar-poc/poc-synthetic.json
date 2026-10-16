@@ -1,0 +1,174 @@
+{
+ "date": "2026-10-16",
+ "what": "PoC dekodera w czystym PHP na danych syntetycznych o budowie identycznej z OPERA CIRRUS DBZH COG (pliki zapisane sterownikiem COG z GDAL 3.10). To NIE są prawdziwe dane radarowe.",
+ "runtime": "PHP 8.5 w WebAssembly (@php-wasm/cli); natywne PHP jest szybsze",
+ "decoder_first_run": {
+  "cog": {
+   "size": [
+    3800,
+    4400
+   ],
+   "bands": 2,
+   "compression": 8,
+   "predictor": 1,
+   "origin": [
+    0,
+    0
+   ],
+   "pixel": [
+    1000,
+    1000
+   ],
+   "nodata": -9999000
+  },
+  "window": {
+   "cols": [
+    2420,
+    2768
+   ],
+   "rows": [
+    2417,
+    2754
+   ],
+   "lut_cached": true
+  },
+  "io": {
+   "requests": 5,
+   "bytes": 4088205,
+   "note": "4 kafle danych syntetycznych są duże (szum); prawdziwy plik ma 3,4 MB na 72 kafle i overviews"
+  },
+  "ms": {
+   "header": 31,
+   "lut": 463,
+   "tiles_and_render": 287,
+   "png": 224,
+   "total": 631,
+   "note": "lut = budowa tablicy przeliczeń przy pierwszym uruchomieniu (463 ms); potem wczytanie z cache ok. 80 ms"
+  },
+  "png_bytes": 30278,
+  "php_peak_mb": 27.8,
+  "tiles": [
+   36,
+   37,
+   44,
+   45
+  ]
+ },
+ "decoder_with_cached_lut_ms": {
+  "header": 20,
+  "lut": 75,
+  "tiles_and_render": 341,
+  "png": 225,
+  "total": 661
+ },
+ "frames": [
+  {
+   "t": "20261016T0025",
+   "png_bytes": 31005,
+   "ms": 928,
+   "max_dbz": 63.2,
+   "echo_pct": 48.52
+  },
+  {
+   "t": "20261016T0030",
+   "png_bytes": 30920,
+   "ms": 448,
+   "max_dbz": 63.1,
+   "echo_pct": 48.55
+  },
+  {
+   "t": "20261016T0035",
+   "png_bytes": 31068,
+   "ms": 438,
+   "max_dbz": 62.8,
+   "echo_pct": 48.6
+  },
+  {
+   "t": "20261016T0040",
+   "png_bytes": 31317,
+   "ms": 442,
+   "max_dbz": 62,
+   "echo_pct": 48.67
+  },
+  {
+   "t": "20261016T0045",
+   "png_bytes": 31133,
+   "ms": 436,
+   "max_dbz": 60.4,
+   "echo_pct": 48.67
+  },
+  {
+   "t": "20261016T0050",
+   "png_bytes": 31082,
+   "ms": 443,
+   "max_dbz": 59.6,
+   "echo_pct": 48.54
+  },
+  {
+   "t": "20261016T0055",
+   "png_bytes": 31171,
+   "ms": 475,
+   "max_dbz": 59.2,
+   "echo_pct": 48.49
+  },
+  {
+   "t": "20261016T0100",
+   "png_bytes": 31024,
+   "ms": 438,
+   "max_dbz": 58.5,
+   "echo_pct": 48.33
+  },
+  {
+   "t": "20261016T0105",
+   "png_bytes": 30661,
+   "ms": 440,
+   "max_dbz": 59.8,
+   "echo_pct": 48.22
+  },
+  {
+   "t": "20261016T0110",
+   "png_bytes": 30938,
+   "ms": 436,
+   "max_dbz": 59.8,
+   "echo_pct": 48.1
+  },
+  {
+   "t": "20261016T0115",
+   "png_bytes": 30755,
+   "ms": 434,
+   "max_dbz": 61.1,
+   "echo_pct": 47.97
+  },
+  {
+   "t": "20261016T0120",
+   "png_bytes": 30687,
+   "ms": 438,
+   "max_dbz": 61.8,
+   "echo_pct": 47.75
+  },
+  {
+   "t": "20261016T0125",
+   "png_bytes": 30278,
+   "ms": 429,
+   "max_dbz": 62.7,
+   "echo_pct": 47.72
+  }
+ ],
+ "validation": {
+  "frames": 13,
+  "pixels_per_frame": 475904,
+  "vs_proj_exact_identical_pct_min": 100.0,
+  "vs_proj_exact_different_pixels_total": 0,
+  "vs_gdal_default_identical_pct_range": [
+   99.5218,
+   99.5587
+  ],
+  "note": "GDAL warp domyślnie używa przybliżonego transformera (błąd do 0,125 px), stąd ok. 0,5% różnic na granicach pikseli; względem dokładnego PROJ wynik PHP jest identyczny."
+ },
+ "laea_selftest_max_error_m": 0.05,
+ "basemap": {
+  "json_bytes": 49474,
+  "json_gzip_bytes": 16023,
+  "powiaty_slaskie": 36
+ }
+}
