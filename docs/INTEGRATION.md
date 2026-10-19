@@ -186,7 +186,7 @@ W szablonie Twig (`templates/_layout.twig` lub `templates/news/_entry.twig`):
 
 ## 8. Radar burzowy (atrybut `radar`)
 
-Atrybut `radar` dodaje w każdej karcie przycisk **„Radar burzowy”**. Kliknięcie otwiera okno z animowaną mapą opadów i burz z ostatniej godziny (klatka co 5 min, EUMETNET OPERA), z widokiem województwa i zbliżeniem na miasto karty. Działa we wszystkich trybach: `single`, `sidebar`, `aggregator` (przycisk w każdej karcie miasta) i `floating` (w panelu).
+Atrybut `radar` dodaje w każdej karcie przycisk **„Radar burzowy”**. Kliknięcie otwiera okno z **interaktywną mapą** (kafelki OpenStreetMap/CARTO) i animacją opadów i burz z ostatniej godziny (klatka co 5 min, EUMETNET OPERA) plus 30-minutową **prognozą ruchu chmur** wyliczaną z przesunięcia frontu. Dwa widoki: „Województwo” (cały obszar Śląska) i **„Miasto” — mapa miasta przypisanego do portalu** (np. Bytom na bytomski.pl). Działa we wszystkich trybach: `single`, `sidebar`, `aggregator` (przycisk w każdej karcie miasta) i `floating` (w panelu).
 
 ```html
 <mo-weather mode="sidebar" city-id="katowice" modules="current,air,daily7,nowcast"
@@ -199,8 +199,9 @@ Bez atrybutu `radar` widget wygląda i działa dokładnie jak dotąd.
 
 - **Do kliknięcia:** zero dodatkowego ruchu sieciowego.
 - **Po kliknięciu:**
-  1. Moduł okna `mo-radar.min.js` (ok. 53 KB, 19 KB po gzip, z mapą województwa). Ładuje się z tego samego katalogu co skrypt widgetu: `…/weather-widget.min.js` → `…/mo-radar.min.js`, z tym samym `?v=…`.
+  1. Moduł okna `mo-radar.min.js` (ok. 67 KB, 25 KB po gzip, z mapą i podkładem). Ładuje się z tego samego katalogu co skrypt widgetu: `…/weather-widget.min.js` → `…/mo-radar.min.js`, z tym samym `?v=…`.
   2. Dane: `GET …/api/radar?manifest` (lista klatek) i 13 obrazków PNG `…/api/radar?frame=…` (po ok. 30 KB, cache 24 h). Domyślnie z centralnego serwera `https://api.mediaoperator.pl/api/radar`.
+  3. Kafelki mapy: `basemaps.cartocdn.com` (Voyager), z awaryjnym `tile.openstreetmap.org`; gdy sieć na kafelki jest zablokowana, okno rysuje własny podkład wektorowy (granice powiatów).
 
 ### B. Atrybuty
 
@@ -209,6 +210,7 @@ Bez atrybutu `radar` widget wygląda i działa dokładnie jak dotąd.
 | `radar` | brak (przycisk wyłączony) | Włącza przycisk. |
 | `radar-url` | `/api/radar` obok `api-url`, jeśli `api-url` kończy się na `/api/weather`; w pozostałych przypadkach (np. lokalne `weather-api.php`) `https://api.mediaoperator.pl/api/radar` | Tylko przy własnym serwerze radaru. |
 | `radar-src` | `mo-radar.min.js` obok skryptu widgetu | Gdy skrypt widgetu jest wklejony do bundla portalu albo leży w innym katalogu niż `mo-radar.min.js`. |
+| `radar-map` | `tiles` | `vector` = bez zewnętrznych kafelków (tylko własny podkład z granicami). Użyć, gdy portal blokuje zewnętrzne domeny. |
 
 ### C. Portale z lokalnymi plikami JS (np. slazag.pl, sekcja 7C)
 
@@ -243,3 +245,12 @@ Przy ładowaniu skryptów z serwera centralnego (a nie z lokalnych plików) potr
 ### F. Wygląd
 
 Okno korzysta z tych samych zmiennych CSS co karta: `--mo-card`, `--mo-text`, `--mo-accent`, `--mo-border`, `--mo-radius`, `--mo-font`. Mapa ma stałe, jasne barwy, żeby kolory opadów były czytelne także w ciemnym motywie.
+
+### G. Obsługa mapy
+
+- **Zoom:** kółko myszy, przyciski `+` / `–`, gest szczypania (dwa palce) na telefonie, klawisze `+` / `–`; przycisk `⟲` wraca do widoku całego województwa, `⛶` włącza pełny ekran.
+- **Przesuwanie:** przeciągnięcie myszą lub palcem, strzałki na klawiaturze (focus na mapie).
+- **Oś czasu:** suwak w krokach **1 minuty** — pomiar (60 min wstecz) i prognoza ruchu (30 min w przód, pomarańczowa przerywana część osi i plakietka „PROGNOZA”).
+- **Widoki:** „Województwo” (obszar pokrycia radaru) oraz przycisk z nazwą miasta portalu (np. „Bytom”) — mapa miasta w powiększeniu ~12 (ulice w skali miasta, nie dzielnic).
+- Radar i kafelki są w tej samej projekcji (Web Mercator), więc warstwa opadów leży co do piksela na mapie.
+- Prognoza ruchu to **ekstrapolacja**, nie model: jest oznaczona osobno i zgaszona (natężenie maleje z czasem).

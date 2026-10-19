@@ -17,11 +17,20 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureFrames } from './radar-demo-frames.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
+const RADAR_DIR = path.join(__dirname, '.radar-demo');
 const PORT = Number(process.env.PORT || 8080);
+
+let radarCache = null;
+function ensureRadarFrames() {
+  // ensureFrames sama sprawdza znacznik 5-minutowego slotu i przerenderowuje tylko w razie potrzeby.
+  radarCache = ensureFrames(RADAR_DIR);
+  return radarCache;
+}
 
 const CITIES = [
   ['katowice', 'Katowice', 15, 2469, true],
@@ -218,6 +227,18 @@ const server = http.createServer((req, res) => {
       data.last_updated_timestamp = nowSec - 5400;
     }
     return send(200, JSON.stringify(data), 'application/json; charset=utf-8', { 'X-Mock': 'dev-preview' });
+  }
+
+  // Radar (dane syntetyczne) — podgląd interfejsu bez produkcyjnego API.
+  if (url.pathname === '/api/radar' || url.pathname === '/api/radar.php') {
+    const radar = ensureRadarFrames();
+    const frame = url.searchParams.get('frame');
+    if (frame && /^\d{8}T\d{4}$/.test(frame)) {
+      const file = path.join(radar.dir, `radar_${frame}.png`);
+      if (!fs.existsSync(file)) return send(404, JSON.stringify({ error: 'unknown frame' }));
+      return send(200, fs.readFileSync(file), 'image/png', { 'Cache-Control': 'public, max-age=300' });
+    }
+    return send(200, JSON.stringify(radar.manifest), 'application/json; charset=utf-8', { 'X-Mock': 'dev-preview (radar)' });
   }
 
   // Statyki z public/

@@ -9,7 +9,7 @@
 - `src/radar-lib.php`: dekoder COG, LUT, PNG, cykl producenta;
 - `scripts/radar-worker.php`: producent;
 - `src/radar-api.php`: endpoint `/api/radar`;
-- `src/mo-radar.js` + `src/mo-radar-basemap.js`: okno radaru, budowane do `dist/mo-radar.min.js`;
+- `src/mo-radar.js` + `src/mo-radar-basemap.js` + `src/mo-radar-map.js`: okno radaru i matematyka mapy, budowane do `dist/mo-radar.min.js`;
 - w `src/weather-widget.js`: przycisk i ładowanie modułu po kliknięciu;
 - testy w `tests/radar.test.php` i `tests/widget.test.js` (19–22).
 
@@ -338,18 +338,24 @@ Health raportuje też `nodata_pct` w oknie mapy. Powyżej 20% status zmienia si�
 
 ### C.5 Frontend
 
+Stan z 2026-10-19: okno radaru przebudowane na **interaktywną mapę** (wariant A) — kafelki OSM/CARTO, zoom, przesuwanie, widok miasta portalu, interpolacja co minutę i prognoza ruchu.
+
 - Główny bundle rośnie o ok. 0,5 KB (przycisk i loader). Reszta trafia do `mo-radar.min.js`, który ładuje się dopiero po kliknięciu. Bez tego budżet 25 KB zostałby przekroczony; dziś bundle ma 20 625 B.
 - Podkład i klatki mają **identyczny bbox w EPSG:3857** (`1870167, 6257910, 2359973, 6728121`, 704 × 676 px). Dzięki temu klatka to zwykły `<img>` położony 1:1 na SVG.
-- Widok „Moje miasto” to powiększenie (CSS `transform`) wrappera z obiema warstwami, wycentrowane na mieście.
+- Mapa: klatka radaru i kafelki są w tej samej projekcji (Web Mercator), więc warstwa opadów leży na mapie co do piksela. Podkład: CARTO Voyager → OSM → własny wektor z granic powiatów (`radar-map="vector"`).
+- Widoki: „Województwo” (cały bbox pokrycia) i „Miasto” — centrum na mieście z `city-id` portalu, zoom 12 (~17 km, skala ulic; bez rozwijania do dzielnic).
 - Odtwarzacz:
-  - wstępnie ładuje 13 klatek (`img.decode()`);
-  - pokazuje każdą przez 500 ms, a na ostatniej zatrzymuje się dłużej;
-  - zatrzymuje się, gdy okno jest zamknięte albo karta przeglądarki ukryta.
-- Atrybucja w stopce okna: „Radar: EUMETNET OPERA (CC BY 4.0) · Granice: PRG/GUGiK”.
+  - oś czasu w krokach **1 min** (pomiar 60 min wstecz + prognoza 30 min w przód);
+  - klatki 5-minutowe są interpolowane: mieszanie dwóch klatek z kompensacją ruchu (korelacja kolejnych klatek, doprecyzowanie sub-pikselowe);
+  - po ostatniej klatce: ekstrapolacja wektora ruchu z gasnącym natężeniem, oznaczona „PROGNOZA”;
+  - zatrzymuje się, gdy okno jest zamknięte albo karta przeglądarki ukryta; `prefers-reduced-motion` wyłącza autoodtwarzanie.
+- Nawigacja: kółko myszy, gest szczypania, przyciski `+`/`–`/`⟲`/`⛶`, strzałki na klawiaturze.
+- Atrybucja w stopce okna: „Radar: EUMETNET OPERA (CC BY 4.0) · Granice: PRG/GUGiK” oraz „Mapa: © OpenStreetMap contributors © CARTO”.
 - Rozmiary:
-  - `mo-radar.min.js` z podkładem: ok. 40–60 KB (ok. 15–20 KB po gzip);
+  - `mo-radar.min.js` z podkładem i matematyką mapy: ok. 67 KB (ok. 25 KB po gzip);
   - manifest: ok. 2 KB;
-  - klatki: 2–30 KB.
+  - klatki: 2–30 KB;
+  - kafelki mapy: po 10–40 KB, z cache przeglądarki (budżet czytelnika, nie serwera).
 
 ### C.6 Uruchamianie na Railway
 

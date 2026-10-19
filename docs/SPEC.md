@@ -342,6 +342,15 @@ Endpoint tylko serwuje pliki przygotowane przez producenta, więc zapytania czyt
 
 Metody: `GET`, `HEAD`, `OPTIONS` (204). CORS z tej samej allowlisty co `weather-api.php`.
 
+**Okno radaru po stronie przeglądarki (`src/mo-radar.js` + `src/mo-radar-map.js`)**
+
+- Klatki PNG są w Web Mercatorze (EPSG:3857) na tym samym bbox co kafelki mapy, więc warstwa opadów nakłada się na mapę co do piksela — bez przeliczania w przeglądarce.
+- Oś czasu: pomiar wstecz (`spanMin` = 60 min) + prognoza ruchu (`FORECAST_MIN` = 30 min), krok **1 min**; klatki 5-minutowe są interpolowane (mieszanie z kompensacją ruchu wyliczoną przez korelację kolejnych klatek, z doprecyzowaniem sub-pikselowym).
+- Prognoza: ostatnia klatka przesunięta o wektor ruchu z ostatnich 5 min, z natężeniem gasnącym wg `decayAlpha()`; w UI oznaczona plakietką „PROGNOZA” i przerywaną częścią osi czasu.
+- Dwa widoki: „Województwo” (cały bbox pokrycia) oraz „Miasto” — centrum na mieście z atrybutu `city-id` (pozycja z `src/cities.php`), zoom 12.
+- Podkład: kafelki CARTO Voyager → OSM (fallback) → własny podkład wektorowy (granice powiatów z PRG/GUGiK), gdy sieć na kafelki jest zablokowana.
+- Bez dostępu do pikseli klatki (brak CORS) mapa i animacja działają, ale prognoza ruchu i „wyczyszczenie” szarego obszaru bez pokrycia są wyłączone.
+
 ---
 
 ## 5. Standardy Bezpieczeństwa i Ochrony Wydajności

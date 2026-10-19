@@ -19,7 +19,7 @@
   - 8 miast bez stacji GIOŚ: 3-dniowa prognoza stężeń PM10 z modelu IOŚ-PIB z jednoznaczną etykietą źródła.
 - **Modułowa Architektura Frontendowa** — atrybut `modules="current,air,daily7,nowcast"`. Brak atrybutu zachowuje 100% kompatybilność wsteczną (tylko moduł bieżący `current`).
 - **Alert Deszczowy Nowcast** — informacja o spodziewanych opadach deszczu na najbliższe godziny z MET Norway (`role="status"`, `aria-live="polite"`).
-- **Radar Burzowy (atrybut `radar`)** — przycisk w karcie otwiera animowaną mapę opadów i burz z ostatniej godziny (EUMETNET OPERA, CC BY 4.0, klatka co 5 min) dla województwa śląskiego i miasta czytelnika. Klatki przygotowuje w tle centralny serwer (czyste PHP, bez kluczy API), a moduł okna ładuje się dopiero po kliknięciu. Szczegóły: [`docs/INTEGRATION.md` §8](docs/INTEGRATION.md#8-radar-burzowy-atrybut-radar).
+- **Radar Burzowy (atrybut `radar`)** — przycisk w karcie otwiera interaktywną mapę (kafelki OSM/CARTO, zoom, przesuwanie) z animacją opadów i burz z ostatniej godziny (EUMETNET OPERA, CC BY 4.0, klatka co 5 min) dla województwa śląskiego i miasta przypisanego do portalu, plus 30-minutową prognozą ruchu chmur. Klatki przygotowuje w tle centralny serwer (czyste PHP, bez kluczy API), a moduł okna ładuje się dopiero po kliknięciu. Szczegóły: [`docs/INTEGRATION.md` §8](docs/INTEGRATION.md#8-radar-burzowy-atrybut-radar).
 - **Zero Zewnętrznych Zależności Runtime** — czysty Vanilla JavaScript (Shadow DOM v1) i natywny PHP 8.1+ (brak npm i composera na serwerze produkcyjnym).
 - **Izolacja CSS i Dostępność (WCAG 2.1 AA)** — Shadow DOM zapobiega konfliktom ze stylami portali; kontrast tekstów i stopki ≥ 4.5:1.
 - **Single-Flight Cache & Thundering Herd Protection** — współbieżne żądania nie odpytują równolegle dostawców API dzięki blokadom `flock`.
@@ -80,6 +80,7 @@ Komponent `<mo-weather>` obsługuje cztery tryby renderowania (`mode`):
 - `radar`: włącza przycisk „Radar burzowy” w każdej karcie (wszystkie tryby). Moduł okna `mo-radar.min.js` musi leżeć obok skryptu widgetu.
 - `radar-url` *(opcjonalny)*: adres API radaru. Domyślnie `/api/radar` obok `/api/weather`, a przy lokalnym `weather-api.php` serwer centralny `https://api.mediaoperator.pl/api/radar`.
 - `radar-src` *(opcjonalny)*: adres `mo-radar.min.js`, gdy nie leży obok skryptu widgetu.
+- `radar-map` *(opcjonalny)*: `tiles` (domyślnie, kafelki OSM/CARTO) albo `vector` — podkład bez zewnętrznych kafelków.
 
 #### Przykłady Użycia
 
@@ -180,3 +181,4 @@ mo-weather.dark {
 - **Prognoza jakości powietrza:** [Instytut Ochrony Środowiska – Państwowy Instytut Badawczy (IOŚ-PIB)](https://prognozy.ios.edu.pl/) — otwarte dane publiczne.
 - **Radar burzowy:** kompozyt radarowy [EUMETNET OPERA](https://www.eumetnet.eu/observations/weather-radar-network/) na licencji [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (dane przetworzone: paleta i rzutowanie na mapę).
 - **Podkład mapy radaru:** granice administracyjne PRG (GUGiK) z repozytorium [ppatrzyk/polska-geojson](https://github.com/ppatrzyk/polska-geojson) (MIT).
+- **Kafelki mapy:** [OpenStreetMap](https://www.openstreetmap.org/copyright) (© OpenStreetMap contributors) oraz [CARTO](https://carto.com/attributions) Voyager.

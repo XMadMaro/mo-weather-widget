@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const assert = require('assert');
 
 console.log('==> Running Frontend Widget Unit Tests (v1.0.1)...');
@@ -138,7 +139,9 @@ console.log('  [21/22] Checking mo-radar.min.js artifact...');
 const radarMinPath = path.resolve(__dirname, '../dist/mo-radar.min.js');
 const radarMin = fs.readFileSync(radarMinPath, 'utf8');
 const radarBytes = fs.statSync(radarMinPath).size;
-assert(radarBytes > 20000 && radarBytes <= 60 * 1024, `mo-radar.min.js size within budget (<= 60 KB): ${radarBytes} bytes`);
+assert(radarBytes > 20000 && radarBytes <= 96 * 1024, `mo-radar.min.js size within budget (<= 96 KB): ${radarBytes} bytes`);
+const radarGzip = zlib.gzipSync(Buffer.from(radarMin)).length;
+assert(radarGzip <= 34 * 1024, `mo-radar.min.js gzip budget (<= 34 KB): ${radarGzip} bytes`);
 assert(radarMin.startsWith('/*!'), 'mo-radar.min.js must start with a license comment /*!');
 assert(radarMin.includes('window.MoWeatherRadar='), 'mo-radar.min.js must define window.MoWeatherRadar');
 assert(radarMin.includes('EUMETNET OPERA') && radarMin.includes('CC BY 4.0') && radarMin.includes('PRG/GUGiK'), 'radar attribution present');
@@ -163,8 +166,42 @@ assert(srcJs.includes("grid.setAttribute('aria-label', 'Prognoza 7-dniowa')"), '
 assert(srcJs.includes('<svg aria-hidden="true" focusable="false"'), 'Decorative SVGs must include aria-hidden="true" focusable="false"');
 
 // Test 25: Kompatybilność Craft CMS / WP Meteor (slazag.pl, bytomski.pl) — wykrywanie data-src skryptu dla radaru
-console.log('  [25/25] Checking Craft CMS / WP Meteor data-src fallback for radar loader...');
+console.log('  [25/29] Checking Craft CMS / WP Meteor data-src fallback for radar loader...');
 assert(srcJs.includes('script[data-src*="weather-widget"]'), 'detectScriptSrc must support WP Meteor data-src attribute');
 
-console.log('✓ All Frontend Widget Unit Tests (25/25) passed successfully!\n');
+// Test 26: Radar — mapa kafelkowa (Wariant A): podkład OSM/CARTO + nakładka radaru + wektor granic
+console.log('  [26/29] Checking interactive tile map in the radar module...');
+assert(radarSrc.includes("'canvas'"), 'radar window must use canvas layers');
+assert(radarSrc.includes('rd-base') && radarSrc.includes('rd-overlay'), 'radar must have a base canvas and a radar overlay canvas');
+assert(radarSrc.includes('basemaps.cartocdn.com') && radarSrc.includes('tile.openstreetmap.org'), 'radar must use OpenStreetMap/CARTO tiles');
+assert(radarSrc.includes('M.tileRange(') && radarSrc.includes('M.project('), 'radar must place tiles and frames in Web Mercator');
+assert(radarSrc.includes('drawVectorBase') && radarSrc.includes('Path2D'), 'radar must fall back to the vector basemap without tiles');
+assert(radarSrc.includes('OpenStreetMap contributors'), 'map attribution must be visible');
+
+// Test 27: Radar — płynna animacja co 1 min i prognoza ruchu w przód
+console.log('  [27/29] Checking 1-minute interpolation and forward nowcast...');
+assert(radarSrc.includes('FORECAST_MIN = 30'), 'radar must forecast 30 minutes ahead');
+assert(radarSrc.includes('M.motionFromField(') && radarSrc.includes('motionBetween'), 'radar must compensate the motion between frames');
+assert(radarSrc.includes('M.bracket('), 'radar must interpolate between frames');
+assert(radarSrc.includes('M.decayAlpha('), 'forecast must fade the echo with time');
+assert(radarSrc.includes("'PROGNOZA'"), 'forecast must be clearly labelled');
+
+// Test 28: Radar — widok „Miasto” przypisany do portalu
+console.log('  [28/29] Checking city view bound to the portal city...');
+assert(radarSrc.includes('CITY_ZOOM'), 'radar must have a city zoom level');
+assert(radarSrc.includes('cityInfo') && radarSrc.includes('mercX(city.lon)'), 'city view must be centred on the portal city');
+assert(srcJs.includes('city: city,'), 'widget must pass the portal city to the radar module');
+assert(srcJs.includes("'radar-map'"), 'widget must expose the radar-map attribute (tiles/vector)');
+assert(srcJs.includes("map: self.getAttribute('radar-map') || 'tiles'"), 'widget must pass the map mode to the radar module');
+
+// Test 29: Build — moduł matematyki mapy dołączony do bundla radaru
+console.log('  [29/29] Checking radar build bundle composition...');
+const radarDist = fs.readFileSync(path.resolve(__dirname, '../dist/mo-radar.js'), 'utf8');
+assert(radarDist.includes('MO_RADAR_MAP'), 'dist/mo-radar.js must include the map math module');
+assert(radarDist.includes('MO_RADAR_BASEMAP'), 'dist/mo-radar.js must include the vector basemap');
+assert(fs.existsSync(path.resolve(__dirname, '../src/mo-radar-map.js')), 'src/mo-radar-map.js must exist');
+assert(fs.existsSync(path.resolve(__dirname, '../tests/radar-map.test.js')), 'tests/radar-map.test.js must exist');
+assert(fs.existsSync(path.resolve(__dirname, '../tests/radar-ui.test.js')), 'tests/radar-ui.test.js must exist');
+
+console.log('✓ All Frontend Widget Unit Tests (29/29) passed successfully!\n');
 
