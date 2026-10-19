@@ -105,6 +105,15 @@ function mo_cors(): void {
         'up.railway.app',
         'railway.app',
     ]);
+    $envOrigins = getenv('MO_ALLOWED_ORIGINS');
+    if (is_string($envOrigins) && trim($envOrigins) !== '') {
+        foreach (explode(',', $envOrigins) as $extraOrigin) {
+            $extraOrigin = strtolower(trim($extraOrigin));
+            if ($extraOrigin !== '') {
+                $allowed[] = $extraOrigin;
+            }
+        }
+    }
     if (getenv('APP_ENV') === 'development' || ($_SERVER['APP_ENV'] ?? '') === 'development' || getenv('RAILWAY_ENVIRONMENT')) {
         $allowed = array_merge($allowed, ['localhost', '127.0.0.1']);
     }
@@ -134,9 +143,15 @@ function mo_rate_limit(string $dir): void {
         }
     }
 
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (str_contains($ip, ',')) {
-        $ip = trim(explode(',', $ip)[0]);
+    $remoteAddr = trim((string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'));
+    $ip = $remoteAddr;
+    $isTrustedProxy = $remoteAddr === '127.0.0.1' || $remoteAddr === '::1'
+        || filter_var($remoteAddr, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+    if ($isTrustedProxy && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $hops = array_values(array_filter(array_map('trim', explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']))));
+        if (!empty($hops)) {
+            $ip = $hops[count($hops) - 1];
+        }
     }
     $salt = date('Ymd'); // rotowana sól dzienna
     $file = $dir . '/rl_' . substr(hash('sha256', $ip . '|' . $salt . '|mo-weather'), 0, 16) . '.json';
@@ -202,9 +217,8 @@ function mo_http_get(string $url, array $headers = []): ?string {
     ];
     $mergedHeaders = array_merge($defaultHeaders, $headers);
 
-    // IOŚ-PIB używa certyfikatu wewnętrznego administracji publicznej
+    // IOŚ-PIB używa certyfikatu wewnętrznego administracji publicznej (próba z pełną weryfikacją TLS, fallback tylko przy błędzie certyfikatu IOŚ)
     $isIos = str_contains($url, 'api.prognozy.ios.edu.pl');
-    $verifySsl = !$isIos;
 
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
@@ -213,18 +227,35 @@ function mo_http_get(string $url, array $headers = []): ?string {
             CURLOPT_TIMEOUT        => MO_API_TIMEOUT,
             CURLOPT_CONNECTTIMEOUT => MO_API_CONNECT,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYPEER => $verifySsl,
-            CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER     => $mergedHeaders,
         ]);
         $raw  = curl_exec($ch);
+        $err  = curl_errno($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
+        if (($raw === false || $err !== 0) && $isIos) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => MO_API_TIMEOUT,
+                CURLOPT_CONNECTTIMEOUT => MO_API_CONNECT,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+                CURLOPT_HTTPHEADER     => $mergedHeaders,
+            ]);
+            $raw  = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+        }
         if (!is_string($raw) || $code < 200 || $code >= 300) return null;
         return $raw;
     }
 
     // Fallback dla środowisk bez ext-curl
+    $verifySsl = !$isIos;
     $ctx = stream_context_create([
         'http' => [
             'method'        => 'GET',
@@ -502,7 +533,7 @@ function mo_build_nowcast(array $met, array $cityConfig): ?array {
         if ($p >= 0.1) {
             if ($i === 0) {
                 $currentlyRaining = true;
-            } elseif ($rainStartDt === null && !$currentlyRaining) {
+            } elseif ($i < 2 && $rainStartDt === null && !$currentlyRaining) {
                 $rainStartDt = $dt;
             }
         }
@@ -822,15 +853,22 @@ if (!in_array($type, $validTypes, true)) {
 
 // 1. Obsługa endpointu HEALTH
 if ($type === 'health') {
+    $healthDir = mo_cache_dir();
+    $modStatus = [];
+    foreach (['current', 'air', 'daily7', 'nowcast'] as $mName) {
+        $degraded = false;
+        foreach (glob($healthDir . '/backoff_' . $mName . '_*.json') ?: [] as $bf) {
+            if (mo_is_in_backoff($bf)) {
+                $degraded = true;
+                break;
+            }
+        }
+        $modStatus[$mName] = $degraded ? 'degraded' : 'fresh';
+    }
     mo_json([
         'ok'           => true,
         'version'      => '2.0.0',
-        'modules'      => [
-            'current' => 'fresh',
-            'air'     => 'fresh',
-            'daily7'  => 'fresh',
-            'nowcast' => 'fresh',
-        ],
+        'modules'      => $modStatus,
         'cities_count' => count($MO_CITIES),
         'radar'        => mo_radar_health_section(),
     ]);

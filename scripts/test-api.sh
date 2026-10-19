@@ -308,4 +308,46 @@ if (($state["count"] ?? 0) !== 1) { echo "FAIL: first miss must set count to 1\n
 echo "✓ Rate limiter cache-hit protection passed.\n";
 '
 
+echo "--> [12/12] Testing P0-3/P0-4/P1-8 (XFF anti-spoofing, nowcast 2h window, MO_DEMO_AUTH scope)..."
+run_php -r '
+define("MO_UNIT_TEST", true);
+require_once "src/weather-api.php";
+
+// 1. P0-4: Public REMOTE_ADDR must ignore spoofed X-Forwarded-For
+$tmpDir = sys_get_temp_dir() . "/rl_xff_test_" . uniqid();
+mkdir($tmpDir, 0777, true);
+$_SERVER["REMOTE_ADDR"] = "198.51.100.42";
+$_SERVER["HTTP_X_FORWARDED_FOR"] = "1.2.3.4";
+mo_rate_limit($tmpDir);
+$salt = date("Ymd");
+$expectedFile = $tmpDir . "/rl_" . substr(hash("sha256", "198.51.100.42|" . $salt . "|mo-weather"), 0, 16) . ".json";
+$files = glob($tmpDir . "/rl_*.json") ?: [];
+foreach ($files as $f) @unlink($f);
+@rmdir($tmpDir);
+if (!in_array($expectedFile, $files, true)) {
+    echo "FAIL: P0-4 public REMOTE_ADDR allowed X-Forwarded-For spoofing\n";
+    exit(1);
+}
+
+// 2. P1-8: Rain at index 2 (+2h..+3h) must NOT trigger active rain alert when none text says 2h
+$nowUtc = new DateTimeImmutable("now", new DateTimeZone("UTC"));
+$fakeMet = [
+    "properties" => [
+        "timeseries" => [
+            ["time" => $nowUtc->format("Y-m-d\TH:00:00\Z"), "data" => ["next_1_hours" => ["details" => ["precipitation_amount" => 0.0]]]],
+            ["time" => $nowUtc->modify("+1 hour")->format("Y-m-d\TH:00:00\Z"), "data" => ["next_1_hours" => ["details" => ["precipitation_amount" => 0.0]]]],
+            ["time" => $nowUtc->modify("+2 hours")->format("Y-m-d\TH:00:00\Z"), "data" => ["next_1_hours" => ["details" => ["precipitation_amount" => 0.5]]]],
+            ["time" => $nowUtc->modify("+3 hours")->format("Y-m-d\TH:00:00\Z"), "data" => ["next_1_hours" => ["details" => ["precipitation_amount" => 0.0]]]],
+        ]
+    ]
+];
+$nc = mo_build_nowcast($fakeMet, ["slug" => "katowice", "label" => "Katowice"]);
+if (($nc["alert"]["active"] ?? true) !== false) {
+    echo "FAIL: P1-8 nowcast triggered active alert for hour +2h..+3h outside 2h window\n";
+    exit(1);
+}
+echo "✓ P0-4 & P1-8 checks passed.\n";
+'
+
 echo "✓ All API integration tests passed successfully!"
+

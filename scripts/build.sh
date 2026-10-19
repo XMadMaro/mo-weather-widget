@@ -34,6 +34,8 @@ terser_run dist/mo-radar.js --compress --mangle --comments '/^!/' --output dist/
 
 cp src/weather-widget.js dist/weather-widget.js
 cp src/weather-api.php dist/weather-api.php
+cp src/radar-api.php dist/radar-api.php
+cp src/radar-lib.php dist/radar-lib.php
 cp src/cities.php dist/cities.php
 
 # Kopiowanie zasobów do katalogu publicznego (Railway & Landing Page)
@@ -43,6 +45,8 @@ cp dist/weather-widget.js public/assets/weather-widget.js
 cp dist/mo-radar.min.js public/assets/mo-radar.min.js
 cp dist/mo-radar.js public/assets/mo-radar.js
 cp src/weather-api.php public/api/weather-api.php
+cp src/radar-api.php public/api/radar-api.php
+cp src/radar-lib.php public/api/radar-lib.php
 cp src/cities.php public/api/cities.php
 
 echo "✓ Build complete: dist/ and public/assets/"

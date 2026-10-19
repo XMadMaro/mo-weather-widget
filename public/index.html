@@ -499,7 +499,7 @@
           <h3>📌 Tryb Inline (standard)</h3>
           <p>Klasyczna karta z pełną szerokością. Idealna pod artykułem lub na stronie głównej w sekcji pogody.</p>
           <div class="mode-slot">
-            <mo-weather mode="single" city-id="katowice" api-url="/api/weather" modules="current,air"></mo-weather>
+            <mo-weather mode="single" city-id="katowice" api-url="/api/weather" modules="current,air" radar></mo-weather>
           </div>
         </div>
 
@@ -507,7 +507,7 @@
           <h3>📰 Tryb Sidebar (kolumna)</h3>
           <p>Kompaktowy pion (szerokość do 320 px) ze scroll-snapem na 7 dni. Zoptymalizowany pod kolumny boczne artykułów.</p>
           <div class="mode-slot-sidebar">
-            <mo-weather mode="sidebar" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast"></mo-weather>
+            <mo-weather mode="sidebar" city-id="katowice" api-url="/api/weather" modules="current,air,daily7,nowcast" radar></mo-weather>
           </div>
         </div>
 
@@ -655,8 +655,8 @@
         <div class="gen-field">
           <label for="gen-radar">Radar burzowy (atrybut radar):</label>
           <select id="gen-radar">
-            <option value="" selected>Bez radaru</option>
-            <option value=" radar">Przycisk „Radar burzowy” w karcie</option>
+            <option value=" radar" selected>Przycisk „Radar burzowy” w karcie</option>
+            <option value="">Bez radaru</option>
           </select>
         </div>
       </div>

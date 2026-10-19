@@ -19,6 +19,17 @@
   var SCRIPT_SRC = (document.currentScript && document.currentScript.src) || '';
   var radarLoading = null;
 
+  function detectScriptSrc() {
+    if (SCRIPT_SRC) return SCRIPT_SRC;
+    if (!document.querySelectorAll) return '';
+    var nodes = document.querySelectorAll('script[src*="weather-widget"],script[data-src*="weather-widget"]');
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      var u = nodes[i].getAttribute('src') || nodes[i].getAttribute('data-src') || '';
+      if (u) return u;
+    }
+    return '';
+  }
+
   function loadRadar(src) {
     if (window.MoWeatherRadar) return Promise.resolve(window.MoWeatherRadar);
     if (!radarLoading) {
@@ -47,16 +58,16 @@
 
   /* Ikony: statyczne SVG (bezpieczne do innerHTML — nie pochodzą z API) */
   var ICONS = {
-    sun:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-    partly:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 2v1.5M2 8h1.5M3.8 3.8l1 1M12.2 3.8l-1 1"/><path d="M17 18a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.5 3.5 0 0 0 7 18z"/></svg>',
-    cloud:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 19z"/></svg>',
-    fog:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M4 19h16M6 22h12"/></svg>',
-    rain:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M8 18v2M12 18v3M16 18v2"/></svg>',
-    snow:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M8 19h.01M12 21h.01M16 19h.01M10 22h.01M14 17h.01"/></svg>',
-    storm:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 13a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 13z"/><path d="M13 14l-3 5h4l-3 5"/></svg>',
-    drop:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
-    radar:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 12l7-7"/><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M16.5 12a4.5 4.5 0 1 1-3.1-4.3"/></svg>',
-    leaf:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>'
+    sun:     '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    partly:  '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 2v1.5M2 8h1.5M3.8 3.8l1 1M12.2 3.8l-1 1"/><path d="M17 18a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.5 3.5 0 0 0 7 18z"/></svg>',
+    cloud:   '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 19z"/></svg>',
+    fog:     '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M4 19h16M6 22h12"/></svg>',
+    rain:    '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M8 18v2M12 18v3M16 18v2"/></svg>',
+    snow:    '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 15a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 15z"/><path d="M8 19h.01M12 21h.01M16 19h.01M10 22h.01M14 17h.01"/></svg>',
+    storm:   '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.5 13a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6 1.7A4 4 0 0 0 6.5 13z"/><path d="M13 14l-3 5h4l-3 5"/></svg>',
+    drop:    '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+    radar:   '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 12l7-7"/><path d="M21 12a9 9 0 1 1-6.2-8.6"/><path d="M16.5 12a4.5 4.5 0 1 1-3.1-4.3"/></svg>',
+    leaf:    '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>'
   };
 
   /* Mapowanie kodów WMO na ikony i polskie etykiety */
@@ -261,13 +272,16 @@
       });
       return Promise.allSettled(tasks).then(function (res) {
         var bundle = { city: city };
+        var anyFulfilled = false;
         modules.forEach(function (mod, idx) {
           if (res[idx].status === 'fulfilled') {
             bundle[mod] = res[idx].value;
+            anyFulfilled = true;
           } else {
             bundle[mod] = null;
           }
         });
+        if (!anyFulfilled) throw new Error('all-modules-failed:' + city);
         return bundle;
       });
     }
@@ -483,13 +497,18 @@
           '↑ ' + (cur.temp_max != null ? cur.temp_max + '°' : '—') +
           ' ↓ ' + (cur.temp_min != null ? cur.temp_min + '°' : '—') +
           ' · wiatr ' + (cur.wind_speed != null ? cur.wind_speed + ' km/h' : '—')));
+      }
 
-        if (cur.is_stale && cur.last_updated_timestamp) {
-          var b = el('span', 'stale');
-          b.dataset.ts = String(cur.last_updated_timestamp);
-          b.textContent = 'Ostatnia aktualizacja: ' + relTime(cur.last_updated_timestamp);
-          card.appendChild(b);
-        }
+      var staleMod = (bundle.current && bundle.current.is_stale && bundle.current.last_updated_timestamp) ? bundle.current
+        : (bundle.air && bundle.air.is_stale && bundle.air.last_updated_timestamp) ? bundle.air
+        : (bundle.daily7 && bundle.daily7.is_stale && bundle.daily7.last_updated_timestamp) ? bundle.daily7
+        : (bundle.nowcast && bundle.nowcast.is_stale && bundle.nowcast.last_updated_timestamp) ? bundle.nowcast
+        : null;
+      if (staleMod) {
+        var b = el('span', 'stale');
+        b.dataset.ts = String(staleMod.last_updated_timestamp);
+        b.textContent = 'Ostatnia aktualizacja: ' + relTime(staleMod.last_updated_timestamp);
+        card.appendChild(b);
       }
 
       // 3. Moduł Jakość powietrza (air)
@@ -567,6 +586,9 @@
         var dWrap = el('div', 'daily-wrap');
         dWrap.appendChild(el('p', 'daily-title', 'Prognoza 7 dni'));
         var grid = el('div', 'daily-grid');
+        grid.setAttribute('role', 'region');
+        grid.setAttribute('aria-label', 'Prognoza 7-dniowa');
+        grid.setAttribute('tabindex', '0');
 
         bundle.daily7.days.forEach(function (day) {
           var col = el('div', 'daily-col');
@@ -627,7 +649,9 @@
       var attr = this.getAttribute('radar-src');
       if (attr) return attr;
       try {
-        var u = new URL(SCRIPT_SRC || '/assets/weather-widget.min.js', SCRIPT_SRC ? undefined : new URL(this._radarUrl(), location.href));
+        var src = detectScriptSrc();
+        var base = src ? location.href : new URL(this._radarUrl(), location.href).href;
+        var u = new URL(src || '/assets/weather-widget.min.js', base);
         u.pathname = u.pathname.replace(/[^\/]*$/, /\.min\.js$/.test(u.pathname) ? 'mo-radar.min.js' : 'mo-radar.js');
         return u.href;
       } catch (e) { return ''; }

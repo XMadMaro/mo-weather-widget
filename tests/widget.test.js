@@ -144,7 +144,7 @@ assert(radarMin.includes('window.MoWeatherRadar='), 'mo-radar.min.js must define
 assert(radarMin.includes('EUMETNET OPERA') && radarMin.includes('CC BY 4.0') && radarMin.includes('PRG/GUGiK'), 'radar attribution present');
 
 // Test 22: Okno radaru — bezpieczeństwo i dostępność
-console.log('  [22/22] Checking radar dialog security and accessibility...');
+console.log('  [22/25] Checking radar dialog security and accessibility...');
 const radarSrc = fs.readFileSync(path.resolve(__dirname, '../src/mo-radar.js'), 'utf8');
 assert(!radarSrc.includes('innerHTML') && !radarSrc.includes('insertAdjacentHTML'), 'mo-radar.js must not parse HTML');
 assert(radarSrc.includes('document.createElementNS(NS, tag)'), 'SVG built via createElementNS');
@@ -152,4 +152,19 @@ assert(radarSrc.includes('prefers-reduced-motion: reduce'), 'radar respects pref
 assert(radarSrc.includes("document.addEventListener('visibilitychange'"), 'animation pauses when the tab is hidden');
 assert(radarSrc.includes("d.setAttribute('aria-labelledby'") && radarSrc.includes("'aria-label', 'Zamknij radar'"), 'dialog labelled, close button labelled');
 
-console.log('✓ All Frontend Widget Unit Tests (22/22) passed successfully!\n');
+// Test 23: P0-1 — Całkowita awaria wszystkich modułów odrzuca _fetchCityModules (renderuje .err zamiast pustej karty)
+console.log('  [23/25] Checking P0-1 total module failure rejection in _fetchCityModules...');
+assert(srcJs.includes("if (!anyFulfilled) throw new Error('all-modules-failed:' + city);"), '_fetchCityModules must reject when all modules fail');
+
+// Test 24: P1-3 / P1-5 — Dostępność .daily-grid (tabindex="0", role="region") oraz aria-hidden="true" na SVG
+console.log('  [24/25] Checking P1-3/P1-5 .daily-grid keyboard accessibility and SVG aria-hidden...');
+assert(srcJs.includes("grid.setAttribute('tabindex', '0')"), '.daily-grid must have tabindex="0" for keyboard scrolling');
+assert(srcJs.includes("grid.setAttribute('aria-label', 'Prognoza 7-dniowa')"), '.daily-grid must have aria-label');
+assert(srcJs.includes('<svg aria-hidden="true" focusable="false"'), 'Decorative SVGs must include aria-hidden="true" focusable="false"');
+
+// Test 25: Kompatybilność Craft CMS / WP Meteor (slazag.pl, bytomski.pl) — wykrywanie data-src skryptu dla radaru
+console.log('  [25/25] Checking Craft CMS / WP Meteor data-src fallback for radar loader...');
+assert(srcJs.includes('script[data-src*="weather-widget"]'), 'detectScriptSrc must support WP Meteor data-src attribute');
+
+console.log('✓ All Frontend Widget Unit Tests (25/25) passed successfully!\n');
+
