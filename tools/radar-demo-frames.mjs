@@ -128,6 +128,7 @@ export function ensureFrames(dir, nowMs = Date.now()) {
   }
   const manifest = {
     version: 1,
+    status: 'fresh',
     generated: new Date(nowMs).toISOString().replace(/\.\d+Z$/, 'Z'),
     latest: frames[frames.length - 1],
     frames: frames.map((t) => ({ t })),
