@@ -8,13 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Radar burzowy — mapa interaktywna (Wariant A)**: okno radaru przebudowane na mapę z kafelkami (CARTO Voyager → OSM → własny podkład wektorowy) zamiast statycznego obrazka.
+  - **Zoom i przesuwanie:** kółko myszy, gest szczypania, przyciski `+`/`–`/`⟲`/`⛶` (pełny ekran), strzałki na klawiaturze, kursor „grab”.
+  - **Widok „Miasto”:** mapa miasta przypisanego do portalu (`city-id`, np. Bytom → bytomski.pl) w skali ulic (~17 km), obok widoku „Województwo” (obszar pokrycia radaru).
+  - **Płynna animacja co 1 minutę:** klatki OPERA co 5 min są interpolowane (mieszanie dwóch klatek z kompensacją ruchu wyliczoną przez korelację kolejnych klatek, z doprecyzowaniem sub-pikselowym).
+  - **Prognoza ruchu chmur do +30 min:** ekstrapolacja wektora ruchu z ostatnich 5 min, z gasnącym natężeniem; oznaczona plakietką „PROGNOZA” i przerywaną częścią osi czasu.
+  - **Warstwa wektorowa:** granice powiatów i województwa śląskiego, etykiety miast i znacznik „moje miasto” rysowane w tej samej projekcji co kafelki.
+- **`src/mo-radar-map.js`**: czysta biblioteka matematyki mapy (Web Mercator, dopasowanie widoku, projekcja, zakres kafelków, pole echa, wektor ruchu, klamka czasu) — testowalna w Node.
+- **`tests/radar-map.test.js`**: 7 grup testów matematyki mapy (round-trip projekcji, dopasowanie bbox, inwersja project/unproject, zakres kafelków, pole echa, wektor ruchu całkowity i sub-pikselowy, klamka pomiar/prognoza).
+- **`tests/radar-ui.test.js`**: 6 grup testów okna radaru w Node (własny stub DOM): struktura okna, manifest i oś czasu, oba widoki, geometria nakładki na mapę, krok 1 min i prognoza, tryb bez dostępu do pikseli.
+- **`tools/radar-demo-frames.mjs`** (narzędzie deweloperskie): syntetyczne klatki radaru w formacie produkcyjnym do podglądu interfejsu bez produkcyjnego API.
+- **Atrybut `radar-map`**: `tiles` (domyślnie) lub `vector` — podkład bez zewnętrznych kafelków dla portali blokujących domeny zewnętrzne.
 - **Radar burzowy (atrybut `radar`)**: przycisk „Radar burzowy” w karcie widgetu (wszystkie tryby; w trybie `aggregator` w każdej karcie miasta).
-  - **Okno:** `<dialog>` w shadow DOM z animacją opadów i burz z ostatniej godziny (13 klatek co 5 min) na mapie województwa śląskiego z granicami powiatów.
+  - **Okno:** `<dialog>` w shadow DOM z animacją opadów i burz z ostatniej godziny (13 klatek co 5 min) na mapie województwa śląskiego z granicami powiatów (od wersji mapy interaktywnej: kafelki + zoom, patrz wyżej).
   - **Widoki:** „Województwo” i zbliżenie na miasto karty.
   - **Odtwarzacz:** play/pause, suwak, godzina w strefie Europe/Warsaw, „x min temu”; legenda natężenia i atrybucja.
   - **Stany:** `stale` (plakietka „Dane sprzed X min”), `degraded`, `down` i błąd sieci (komunikat z „Spróbuj ponownie”).
   - **Dostępność:** Esc z powrotem fokusu, `prefers-reduced-motion` (bez autoodtwarzania), pauza przy ukrytej karcie, CLS 0 (skeleton wyższy o przycisk), brak błędów WCAG w audycie axe-core.
-- **`src/mo-radar.js` + `src/mo-radar-basemap.js` → `dist/mo-radar.min.js`** (53 KB, 19 KB gzip): moduł ładowany dopiero po kliknięciu, jako zwykły skrypt obok `weather-widget.min.js`. Nowe atrybuty `radar-url` i `radar-src`.
+- **`src/mo-radar.js` + `src/mo-radar-basemap.js` + `src/mo-radar-map.js` → `dist/mo-radar.min.js`** (67 KB, 25 KB gzip): moduł ładowany dopiero po kliknięciu, jako zwykły skrypt obok `weather-widget.min.js`. Atrybuty `radar-url`, `radar-src` i `radar-map`.
 - **`src/radar-lib.php`**: producent klatek w czystym PHP, bez nowych zależności i bez zmian w obrazie Dockera.
   - Czyta pliki COG EUMETNET OPERA (DBZH) przez HTTP Range: nagłówek i 4 kafle z 72.
   - Sprawdza budowę pliku przy każdej klatce.
@@ -33,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - odrzucanie zmienionego formatu;
   - walidacja klatek, progi statusu;
   - cykl producenta z podstawionym źródłem.
-- **`tests/widget.test.js`**: testy 19–22 (przycisk tylko z atrybutem, leniwe ładowanie, budżet `mo-radar.min.js` ≤ 60 KB, brak parsowania HTML w oknie).
+- **`tests/widget.test.js`**: testy 19–29 (przycisk tylko z atrybutem, leniwe ładowanie, budżet `mo-radar.min.js` ≤ 96 KB / 34 KB gzip, brak parsowania HTML w oknie, mapa kafelkowa, interpolacja 1 min, prognoza ruchu, widok miasta portalu).
 - **`public/index.html`**: radar w makiecie portalu, agregatorze i trybie floating; opcja radaru w generatorze kodu.
 
 ### Changed

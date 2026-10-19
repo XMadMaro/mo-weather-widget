@@ -21,12 +21,13 @@ terser_run() {
 
 terser_run src/weather-widget.js --compress --mangle --comments '/^!/' --output dist/weather-widget.min.js
 
-# Radar burzowy: moduł ładowany dopiero po kliknięciu = podkład mapy + okno radaru w jednym pliku.
+# Radar burzowy: moduł ładowany dopiero po kliknięciu = podkład mapy + matematyka mapy + okno radaru.
 # Podkład (src/mo-radar-basemap.js) generuje scripts/gen-basemap.mjs --js.
 {
-  echo '/*! MO Weather Widget v2.0.0: radar burzowy. Radar: EUMETNET OPERA (CC BY 4.0), granice: PRG/GUGiK (ppatrzyk/polska-geojson, MIT) */'
+  echo '/*! MO Weather Widget v2.0.0: radar burzowy. Radar: EUMETNET OPERA (CC BY 4.0), granice: PRG/GUGiK (ppatrzyk/polska-geojson, MIT), mapa: © OpenStreetMap contributors © CARTO */'
   echo '(function () {'
   cat src/mo-radar-basemap.js
+  cat src/mo-radar-map.js
   cat src/mo-radar.js
   echo '})();'
 } > dist/mo-radar.js

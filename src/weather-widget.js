@@ -213,7 +213,7 @@
   ].join('\n');
 
   class MoWeather extends HTMLElement {
-    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules', 'position', 'sticky', 'radar', 'radar-url', 'radar-src']; }
+    static get observedAttributes() { return ['mode', 'city-id', 'cities', 'api-url', 'modules', 'position', 'sticky', 'radar', 'radar-url', 'radar-src', 'radar-map']; }
 
     connectedCallback() {
       if (!this.shadowRoot) {
@@ -628,7 +628,14 @@
         loadRadar(self._radarSrc()).then(function (radar) {
           b.removeAttribute('aria-busy');
           label.textContent = 'Radar burzowy';
-          radar.open({ root: self.shadowRoot, url: self._radarUrl(), city: city, cityName: cityName, trigger: b });
+          radar.open({
+            root: self.shadowRoot,
+            url: self._radarUrl(),
+            city: city,
+            cityName: cityName,
+            trigger: b,
+            map: self.getAttribute('radar-map') || 'tiles'
+          });
         }, function () {
           b.removeAttribute('aria-busy');
           label.textContent = 'Radar niedostępny';
